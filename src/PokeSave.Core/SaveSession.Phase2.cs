@@ -54,8 +54,11 @@ public sealed partial class SaveSession
     public BagView GetBag(string language = "es")
     {
         var strings = GameInfo.GetStrings(language);
-        var bag = Save.Inventory;
         var pouches = new List<PouchView>();
+        // Algunas partidas (p. ej. en blanco) no tienen los bloques de la mochila: se muestra vacía.
+        var bag = Safe(() => Save.Inventory);
+        if (bag is null)
+            return new BagView(pouches);
         foreach (var pouch in bag.Pouches)
         {
             if (pouch.Type is InventoryType.None or InventoryType.FreeSpace)
@@ -126,7 +129,61 @@ public sealed partial class SaveSession
                 entries.Add(new DexEntry(s, Get(strings.specieslist, s) ?? $"#{s}", Safe(() => (bool?)sav.GetSeen(s)) ?? false, Safe(() => (bool?)sav.GetCaught(s)) ?? false));
             }
         }
-        return new DexView(DexEditable, entries);
+        return new DexView(DexEditable, entries, GetRegions());
+    }
+
+    /// <summary>
+    /// Pokédex regionales. Para los juegos nuevos PKHeX trae el número regional de cada especie.
+    /// Para Blanco/Negro no hace falta: la Pokédex de Teselia va en el mismo orden que la
+    /// Nacional, de Victini (#494, Teselia 000) a Genesect (#649, Teselia 155).
+    /// Del resto de juegos aún no hay datos: solo se muestra la Nacional.
+    /// </summary>
+    private List<DexRegion> GetRegions()
+    {
+        var sav = Save;
+        var regions = new List<DexRegion>();
+        void Add(string key, Func<ushort, int> number)
+        {
+            var list = new List<RegionEntry>();
+            for (ushort s = 1; s <= sav.MaxSpeciesID; s++)
+            {
+                int n = number(s);
+                if (n > 0 || (key == "unova" && s == (ushort)Species.Victini))
+                    list.Add(new RegionEntry(s, n));
+            }
+            if (list.Count > 0)
+                regions.Add(new DexRegion(key, list.OrderBy(e => e.Number).ToList()));
+        }
+
+        switch (sav)
+        {
+            case SAV5BW:
+                Add("unova", s => s is >= 494 and <= 649 ? s - 494 : 0);
+                break;
+            case SAV1:
+                Add("kanto", s => s <= 151 ? s : 0);
+                break;
+            case SAV8BS:
+                Add("sinnoh", s => ((PersonalInfo8BDSP)sav.Personal[s]).PokeDexIndex);
+                break;
+            case SAV8SWSH:
+                Add("galar", s => ((PersonalInfo8SWSH)sav.Personal[s]).PokeDexIndex);
+                Add("armor", s => ((PersonalInfo8SWSH)sav.Personal[s]).ArmorDexIndex);
+                Add("crown", s => ((PersonalInfo8SWSH)sav.Personal[s]).CrownDexIndex);
+                break;
+            case SAV8LA:
+                Add("hisui", s => ((PersonalInfo8LA)sav.Personal[s]).DexIndexHisui);
+                break;
+            case SAV9SV:
+                Add("paldea", s => ((PersonalInfo9SV)sav.Personal[s]).DexPaldea);
+                Add("kitakami", s => ((PersonalInfo9SV)sav.Personal[s]).DexKitakami);
+                Add("blueberry", s => ((PersonalInfo9SV)sav.Personal[s]).DexBlueberry);
+                break;
+            case SAV9ZA:
+                Add("lumiose", s => ((PersonalInfo9ZA)sav.Personal[s]).DexIndex);
+                break;
+        }
+        return regions;
     }
 
     /// <summary>
@@ -262,9 +319,9 @@ public sealed partial class SaveSession
         var sav = Save;
         // Comprobar antes de aplicar: PKHeX recorta los valores fuera de rango (una especie
         // de Gen 9 en Blanco acabaría convertida en Genesect sin avisar).
-        if (set.Species > sav.MaxSpeciesID || !sav.Personal.IsSpeciesInGame(set.Species))
+        if (!IsInGame(set.Species, set.Form))
             return new EditResult(false, "pk-species", null, null);
-        if (set.Moves.Any(m => m > sav.MaxMoveID))
+        if (set.Moves.Any(m => m > sav.MaxMoveID || !IsMoveInGame(m)))
             return new EditResult(false, "pk-moves", null, null);
 
         var pk = sav.BlankPKM;
@@ -301,11 +358,16 @@ public sealed partial class SaveSession
     private EditResult Place(SlotRef at, PKM pk, string language)
     {
         var sav = Save;
-        if (pk.Species > sav.MaxSpeciesID || !sav.Personal.IsSpeciesInGame(pk.Species))
+        // Nada que no exista en este juego: especie y forma, movimientos, habilidad y objeto.
+        if (!IsInGame(pk.Species, pk.Form))
             return new EditResult(false, "pk-species", null, null);
-        if (pk.Move1 > sav.MaxMoveID || pk.Move2 > sav.MaxMoveID || pk.Move3 > sav.MaxMoveID || pk.Move4 > sav.MaxMoveID)
+        if (new[] { pk.Move1, pk.Move2, pk.Move3, pk.Move4 }.Any(m => m > sav.MaxMoveID || !IsMoveInGame(m)))
             return new EditResult(false, "pk-moves", null, null);
-        if (pk.HeldItem > sav.MaxItemID)
+        // Habilidad que no existe aquí (o vacía): la primera de la especie, como al transferir.
+        if (pk.Format >= 3 && (pk.Ability <= 0 || pk.Ability > sav.MaxAbilityID || pk.PersonalInfo.GetIndexOfAbility(pk.Ability) < 0))
+            pk.RefreshAbility(0);
+        // El objeto no se rechaza: si no existe aquí se le quita (como al transferir).
+        if (pk.HeldItem > sav.MaxItemID || !IsHoldable(pk.HeldItem))
             pk.HeldItem = 0;
 
         // En el equipo se añade al final: no puede quedar un hueco en medio.

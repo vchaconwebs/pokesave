@@ -18,8 +18,17 @@ public sealed record PouchEdit(string Type, IReadOnlyList<BagItemEdit> Items);
 
 public sealed record DexEntry(int Species, string Name, bool Seen, bool Caught);
 
-/// <summary>Pokédex del juego. <c>Editable</c> es false en los juegos cuya Pokédex aún no se sabe editar.</summary>
-public sealed record DexView(bool Editable, IReadOnlyList<DexEntry> Entries);
+/// <summary>
+/// Pokédex del juego. <c>Entries</c> es la Nacional; <c>Regions</c>, las regionales del juego
+/// (Teselia, Galar…) con su numeración propia. <c>Editable</c> es false en los juegos cuya
+/// Pokédex aún no se sabe editar.
+/// </summary>
+public sealed record DexView(bool Editable, IReadOnlyList<DexEntry> Entries, IReadOnlyList<DexRegion> Regions);
+
+/// <summary>Una Pokédex regional. <c>Key</c> la traduce la UI (unova, galar, paldea…).</summary>
+public sealed record DexRegion(string Key, IReadOnlyList<RegionEntry> Entries);
+
+public sealed record RegionEntry(int Species, int Number);
 
 /// <summary>Cambios en bloque: lista de especies (o vacía = todas) y el estado que se quiere.</summary>
 public sealed record DexEdit(IReadOnlyList<int> Species, bool Seen, bool Caught);

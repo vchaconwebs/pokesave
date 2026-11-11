@@ -10,6 +10,23 @@ public sealed partial class SaveSession
 {
     private const int StatCount = 6;
 
+    // ---------- Qué existe en este juego ----------
+
+    private HashSet<int>? _legalMoves;
+
+    /// <summary>
+    /// Movimientos que existen en el juego cargado. No basta con "número ≤ máximo": en
+    /// Espada/Escudo, DBPR, Leyendas o Escarlata/Púrpura hay cientos de movimientos con número
+    /// válido que se quitaron del juego, y ponérselos a un Pokémon puede romper la partida.
+    /// </summary>
+    internal HashSet<int> LegalMoves => _legalMoves ??= new FilteredGameDataSource(Save, new GameDataSource(GameInfo.GetStrings("en")))
+        .Moves.Select(m => m.Value).Where(m => m > 0).ToHashSet();
+
+    internal bool IsMoveInGame(int move) => move == 0 || LegalMoves.Contains(move);
+
+    internal bool IsInGame(ushort species, byte form)
+        => species >= 1 && species <= Save.MaxSpeciesID && Save.Personal.IsPresentInGame(species, form);
+
     // ---------- Lectura ----------
 
     public GameLists GetLists(string language = "es")
@@ -165,7 +182,7 @@ public sealed partial class SaveSession
             return "species";
         if (e.Level < 1 || e.Level > limits.MaxLevel)
             return "level";
-        if (e.Moves is not { Count: 4 } || e.Moves.Any(m => m < 0 || m > sav.MaxMoveID) || e.Moves.All(m => m == 0))
+        if (e.Moves is not { Count: 4 } || e.Moves.Any(m => m < 0 || m > sav.MaxMoveID || !IsMoveInGame(m)) || e.Moves.All(m => m == 0))
             return "moves";
         var nonEmpty = e.Moves.Where(m => m != 0).ToList();
         if (nonEmpty.Distinct().Count() != nonEmpty.Count)
