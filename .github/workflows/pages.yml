@@ -53,7 +53,12 @@ jobs:
       - name: Compilar web
         working-directory: web
         # La web vive en https://<usuario>.github.io/<repositorio>/
-        run: npx vite build --base "/${{ github.event.repository.name }}/"
+        run: |
+          npx vite build --base "/${{ github.event.repository.name }}/"
+          node scripts/build-pages.mjs
+        env:
+          # Páginas estáticas para buscadores (privacidad, una por juego, sitemap).
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
 
       - uses: actions/upload-pages-artifact@v3
         with:

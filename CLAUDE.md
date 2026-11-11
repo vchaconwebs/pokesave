@@ -252,6 +252,26 @@ cd web && npm run typecheck && npm run lint && npm test
   DataBuilder guarda ese número (`Locations[].Id`) para cruzar los encuentros del asistente.
 - Resto de juegos: no hay coordenadas libres de cada lugar; haría falta dibujarlas a mano.
 
+## Decisiones de la Fase 6 y extras
+
+- **Compartir equipo** (`share.ts`, `TeamShare.tsx`): imagen 1200×630 en canvas (los sprites
+  de PokéAPI permiten CORS) y enlace con el equipo comprimido (deflate-raw + base64url) en el
+  fragmento `#team=…`, que el navegador no envía al servidor. Al leerlo se valida (especies,
+  niveles, longitudes) y solo se pinta como texto. Showdown en inglés con el motor.
+- **Páginas para buscadores** (`web/scripts/build-pages.mjs`, después de `vite build`): HTML
+  estático sin JavaScript en `privacidad/`, `juegos/` y `juegos/<juego>/` (contenido propio por
+  juego, FAQ y JSON-LD), `sitemap.xml` y `robots.txt`. La URL sale de `SITE_URL`. Ojo: en un
+  subdominio `github.io` con ruta (`/pokesave/`) Google no lee ese `robots.txt` (tiene que estar
+  en la raíz del dominio): el sitemap hay que darlo de alta en Search Console. Con dominio propio
+  sí vale.
+- **Anuncios** (`AdSlot.tsx`): desactivados. Solo se cargan si la compilación lleva
+  `VITE_ADSENSE_CLIENT` y `VITE_ADSENSE_SLOT`. Van en su propio hueco, nunca encima de la UI.
+  Para activarlos hace falta: dominio propio (AdSense no acepta `*.github.io`), cuenta de
+  AdSense aprobada (riesgo: sus políticas prohíben "hacking/cheats"; un editor de partidas está
+  en zona gris), el aviso de consentimiento de Google para la UE y actualizar la página de
+  privacidad. GitHub Pages no está pensado para webs comerciales: con anuncios conviene
+  Cloudflare Pages o Netlify (además sirven los `.br` precomprimidos).
+
 ## Mediciones de la Fase 0
 
 Motor publicado con `PublishTrimmed`, `TrimMode=full`, `InvariantGlobalization`, Webcil y

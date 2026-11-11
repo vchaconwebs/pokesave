@@ -5,13 +5,26 @@
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#e3242b" />
-    <meta name="description" content="Editor de partidas en el navegador: sube tu .sav, mira tu equipo y edítalo sin que la partida salga de tu dispositivo." />
-    <title>PokeSave · Editor de partidas</title>
+    <meta name="description" content="Editor de partidas de Pokémon en el navegador, de Rojo a Escarlata y Púrpura: edita tu equipo, la mochila y la Pokédex sin instalar nada y sin que la partida salga de tu dispositivo." />
+    <title>PokeSave · Editor de partidas de Pokémon en el navegador</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="PokeSave" />
+    <meta property="og:title" content="PokeSave · Editor de partidas de Pokémon" />
+    <meta property="og:description" content="Edita tu partida de Pokémon en el navegador, sin subirla a ningún sitio. De la 1.ª a la 9.ª generación." />
+    <meta name="twitter:card" content="summary" />
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"WebApplication","name":"PokeSave","description":"Editor de partidas de Pokémon en el navegador, de la 1.ª a la 9.ª generación. La partida no sale del dispositivo.","applicationCategory":"UtilitiesApplication","operatingSystem":"Navegador web","offers":{"@type":"Offer","price":"0","priceCurrency":"EUR"},"inLanguage":["es","en"]}
+    </script>
     <!-- Precarga del motor: empieza a bajar mientras React arranca. -->
     <link rel="modulepreload" href="%BASE_URL%_framework/dotnet.js" />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>PokeSave · Editor de partidas de Pokémon</h1>
+      <p>Edita tu partida de Pokémon en el navegador (hace falta JavaScript). La partida no sale de tu dispositivo.</p>
+      <p><a href="juegos/">Juegos compatibles</a> · <a href="privacidad/">Privacidad</a></p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

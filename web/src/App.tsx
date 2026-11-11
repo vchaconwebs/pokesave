@@ -8,6 +8,7 @@ import { AssistantPanel } from './components/AssistantPanel'
 import { ItemFinderPanel } from './components/ItemFinderPanel'
 import { MapPanel } from './components/MapPanel'
 import { SharedTeamView, TeamShareDialog } from './components/TeamShare'
+import { AdSlot } from './components/AdSlot'
 import { decodeTeam, teamFromHash, type SharedTeam } from './share'
 import { regionMapsFor } from './regionMap'
 import { assistantGame } from './assistant'
@@ -374,6 +375,7 @@ export default function App() {
           ) : (
             <Landing busy={busy} engine={engine} pct={pct} error={error} onPick={pickFile} />
           )}
+          <AdSlot />
         </main>
 
         <footer className="footer">
@@ -381,6 +383,11 @@ export default function App() {
             <Icon name="lock" /> {t('privacy')}
           </p>
           <p className="muted">{t('footer')}</p>
+          <p className="footer__links">
+            <a href={`${import.meta.env.BASE_URL}privacidad/`}>{t('footerPrivacy')}</a>
+            <a href={`${import.meta.env.BASE_URL}juegos/`}>{t('footerGames')}</a>
+            <a href="https://github.com/vchaconwebs/pokesave">GitHub</a>
+          </p>
         </footer>
 
         {ready && loaded && editing && lists && (

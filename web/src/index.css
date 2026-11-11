@@ -3285,3 +3285,10 @@ p {
 .share--page { max-width: 900px; margin: 0 auto; padding: 16px; }
 .share__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .share__list li { background: var(--surface); border-radius: 14px; padding: 10px 12px; box-shadow: inset 0 0 0 2px var(--line); }
+
+.footer__links { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; font-size: 0.9rem; }
+.footer__links a { color: var(--muted); }
+
+/* Anuncios (desactivados si no hay ID): en su propio hueco, nunca encima de la interfaz. */
+.ad-slot { margin: 24px auto 0; max-width: 970px; min-height: 100px; padding: 8px; border-radius: 14px; box-shadow: inset 0 0 0 2px var(--line); }
+.ad-slot__label { display: block; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
