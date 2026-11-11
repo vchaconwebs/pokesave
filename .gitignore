@@ -1,0 +1,27 @@
+# .NET
+bin/
+obj/
+artifacts/
+*.user
+.vs/
+TestResults/
+
+# Node / Vite
+node_modules/
+web/dist/
+# El motor compilado se genera con `npm run engine`
+web/public/_framework/
+web/public/_dev-saves/
+
+# Partidas: nunca se suben partidas reales al repositorio
+*.sav
+*.dsv
+*.bin
+*.gci
+tests/saves-local/*
+!tests/saves-local/README.md
+
+# Varios
+.DS_Store
+Thumbs.db
+*.log
