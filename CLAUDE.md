@@ -11,7 +11,11 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
 - Publicado en https://vchaconwebs.github.io/pokesave/ (rama `main`).
 - **Fase 0 (prueba técnica): hecha.** Rama `fase-0`. Carga de partida, detección de juego y
   generación, entrenador, equipo, Pokédex y PC en solo lectura, copia del original.
-- Siguiente: Fase 1 (MVP del editor). Antes de empezar, proponer un plan y esperar confirmación.
+- **Fase 1 (MVP del editor): hecha.** Rama `fase-1`. Editar Pokémon (especie, nivel, mote,
+  naturaleza, habilidad, movimientos, IVs, EVs, variocolor, objeto) del equipo y de las cajas,
+  editar nombre y dinero del entrenador, medallas, cajas del PC, avisos de legalidad y exportar
+  con copia del original obligatoria antes.
+- Siguiente: Fase 2 (mochila, Pokédex, .pk*/Showdown, deshacer). Proponer un plan antes.
 
 ## Estructura
 
@@ -19,6 +23,8 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
 src/PokeSave.Core/    Lógica de partidas (C#, net10.0). Única capa que usa PKHeX.Core.
   SaveSession.cs        Abrir, resumir y exportar una partida.
   SaveSummary.cs        DTOs que se mandan a la UI + contexto JSON con generador de código.
+  SaveSession.Editing.cs  Fase 1: leer/editar Pokémon, cajas, entrenador, medallas, listas.
+  EditModels.cs         DTOs de edición (SlotRef, PokemonEdit, EditLimits, EditResult…).
 src/PokeSave.Wasm/    Puente browser-wasm. Expone `Engine` a JS con [JSExport].
 tests/PokeSave.Core.Tests/   xUnit. Partidas generadas, nunca reales.
 tests/saves-local/    Tus partidas reales para probar en local (en .gitignore).
@@ -26,7 +32,8 @@ web/                  Frontend: Vite + React + TypeScript.
   src/engine.ts         Carga perezosa del runtime .NET y API tipada.
   src/i18n.ts           Textos en español e inglés.
   src/theme.ts          Colores por juego y por especie.
-  src/components/       Vista de partida e iconos/gráficos propios.
+  src/components/       Vista de partida, editor de Pokémon (PokemonEditor), cajas del PC,
+                        entrenador y exportación (Panels), controles (Modal, Combobox…).
   scripts/build-engine.mjs   Publica PokeSave.Wasm y copia _framework a web/public.
   vite.config.ts        Middleware que sirve /_framework tal cual en desarrollo.
 ```
@@ -87,6 +94,27 @@ cd web && npm run typecheck && npm run lint
   tamaño fijo. Se delega en `SaveUtil.TryGetSaveFile`.
 - El motor se carga en el hilo principal. Leer la partida tarda ~0,9 s la primera vez (sobre
   todo el análisis de legalidad). Si molesta al editar, moverlo a un Web Worker.
+
+## Decisiones de la Fase 1
+
+- **Toda la validación está en el núcleo C#** (`SaveSession.Apply`): especie existente en el
+  juego, nivel 1-100, 1-4 movimientos sin repetir, IVs/EVs dentro de los límites de la
+  generación (EV máx. 255 en Gen ≤5, 252 después; total 510), objeto que se pueda llevar en
+  ese juego, mote con la longitud del juego. Si algo falla no se toca la partida y se devuelve
+  un código (`EditResult.Error`) que la UI traduce (`err_*` en `i18n.ts`).
+- **Vista previa** (`PreviewPokemon`): aplica los cambios a una copia para mostrar stats,
+  habilidades de la nueva especie y legalidad mientras se edita.
+- **PID**: en Gen 3/4 naturaleza, habilidad, sexo y variocolor salen del mismo PID; se busca
+  un PID que cumpla todo a la vez (`SearchPid34`). En Gen 5+ la naturaleza se asigna directa
+  y variocolor/habilidad se aplican en bucle. Antes fallaba de forma intermitente: hay un test
+  que prueba 200 combinaciones seguidas en Gen 3, 4, 5, 6 y 8.
+- **Gen 1/2**: no hay naturaleza ni habilidad, el PS sale de los demás IVs, AtE/DeE es una
+  sola estadística (Especial) y el variocolor depende de los IVs (manda sobre ellos).
+- **Exportar**: la UI obliga a descargar antes la copia del original. La partida editada se
+  descarga con el mismo nombre que el original para sustituirla sin más.
+- Aviso del navegador al cerrar la pestaña con cambios sin descargar.
+- Los Pokémon sin movimientos no se pueden guardar hasta añadir uno (el mensaje lo explica).
+- No se distinguen formas (Alola, Galar…) ni se crean Pokémon en huecos vacíos: Fase 2.
 
 ## Mediciones de la Fase 0
 
