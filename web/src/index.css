@@ -857,6 +857,42 @@ p {
     inset 0 -6px 14px hsl(var(--h) 60% 20% / 0.45),
     0 10px 24px -10px hsl(var(--h) 80% 50% / 0.8);
 }
+.sprite {
+  --h: 200;
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 75%, hsl(var(--h) 70% 50% / 0.35), transparent 60%),
+    var(--surface-2);
+  border: 1px solid var(--border);
+}
+.sprite img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  opacity: 0;
+  transform: translateY(4px) scale(0.9);
+  transition: opacity 0.3s, transform 0.3s;
+  filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.35));
+}
+.sprite--loaded img {
+  opacity: 1;
+  transform: none;
+}
+.sprite--shiny {
+  outline: 2px solid var(--shiny);
+  outline-offset: 3px;
+  background:
+    radial-gradient(circle at 50% 75%, color-mix(in srgb, var(--shiny) 40%, transparent), transparent 60%),
+    var(--surface-2);
+}
+.mon:hover .sprite--loaded img {
+  transform: scale(1.12);
+}
 .orb__initials {
   font-weight: 850;
   font-size: 22px;

@@ -1,7 +1,8 @@
-// Elementos gráficos propios. A propósito no se usan sprites ni artes oficiales
-// (ver "Riesgos" en la especificación): cada especie tiene un "orbe" generado a partir
-// de su número de Pokédex.
-import { speciesHue } from '../theme'
+// Elementos gráficos. Los sprites NO están en el repositorio: se cargan desde el repositorio
+// público de PokéAPI (ver "Riesgos" en la especificación). Si no cargan, se dibuja un "orbe"
+// propio generado a partir del número de Pokédex.
+import { useState } from 'react'
+import { spriteUrl, speciesHue } from '../theme'
 
 export function Logo({ size = 32 }: { size?: number }) {
   return (
@@ -17,6 +18,45 @@ export function Logo({ size = 32 }: { size?: number }) {
       <rect x="16" y="7.5" width="2.4" height="4" rx=".6" fill="url(#lg)" />
       <path d="M16 17.2l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="var(--logo-ink)" />
     </svg>
+  )
+}
+
+/** Sprite del Pokémon con el orbe como respaldo (huevos, sin conexión o sprite inexistente). */
+export function MonSprite({
+  species,
+  name,
+  shiny,
+  egg,
+  size = 72,
+}: {
+  species: number
+  name: string
+  shiny: boolean
+  egg: boolean
+  size?: number
+}) {
+  const url = egg ? null : spriteUrl(species, shiny)
+  const [failed, setFailed] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState<string | null>(null)
+
+  if (!url || failed === url) return <SpeciesOrb species={species} name={name} shiny={shiny} egg={egg} size={size} />
+
+  return (
+    <div
+      className={`sprite${shiny ? ' sprite--shiny' : ''}${loaded === url ? ' sprite--loaded' : ''}`}
+      style={{ width: size, height: size, ['--h' as string]: speciesHue(species) }}
+    >
+      <img
+        src={url}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onLoad={() => setLoaded(url)}
+        onError={() => setFailed(url)}
+      />
+      {shiny && <span className="orb__spark">✦</span>}
+    </div>
   )
 }
 

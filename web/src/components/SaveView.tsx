@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { PokemonInfo, SaveSummary } from '../types'
 import { useI18n } from '../i18n'
-import { Icon, SpeciesOrb } from './visuals'
+import { Icon, MonSprite } from './visuals'
 
 export function SaveView({
   save,
@@ -160,7 +160,7 @@ function MonCard({ pk, index }: { pk: PokemonInfo; index: number }) {
   return (
     <li className="mon card" style={{ animationDelay: `${index * 60}ms` }}>
       <div className="mon__head">
-        <SpeciesOrb species={pk.species} name={pk.speciesName} shiny={pk.isShiny} egg={pk.isEgg} />
+        <MonSprite species={pk.species} name={pk.speciesName} shiny={pk.isShiny} egg={pk.isEgg} />
         <div className="mon__title">
           <h4 className="truncate">
             {displayName}

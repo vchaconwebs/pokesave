@@ -3,6 +3,21 @@
 /** Matiz estable por especie usando el ángulo áureo: especies cercanas no se parecen. */
 export const speciesHue = (species: number) => Math.round((species * 137.508) % 360)
 
+const SPRITES = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon'
+
+/**
+ * Sprite de la especie. Hasta la 5.ª generación (#649) se usan los sprites animados de
+ * Blanco/Negro; a partir de ahí, el sprite estático por defecto. De momento no se
+ * distinguen formas (Alola, Galar…): se muestra la forma base.
+ */
+export function spriteUrl(species: number, shiny: boolean) {
+  if (species <= 0 || species > 1025) return null
+  const s = shiny ? 'shiny/' : ''
+  return species <= 649
+    ? `${SPRITES}/versions/generation-v/black-white/animated/${s}${species}.gif`
+    : `${SPRITES}/${s}${species}.png`
+}
+
 /** Color de acento por juego (solo colores, sin logos). */
 const GAME_ACCENTS: Record<string, [string, string]> = {
   RD: ['#ef4444', '#f97316'], BU: ['#3b82f6', '#6366f1'], GN: ['#22c55e', '#84cc16'], YW: ['#eab308', '#f59e0b'],
