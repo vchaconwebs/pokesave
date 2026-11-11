@@ -42,6 +42,16 @@ npm run dev        # http://localhost:5173
 npm run build      # web estática en web/dist
 ```
 
+## Publicar en GitHub Pages
+
+`.github/workflows/pages.yml` compila el motor, pasa los tests y publica `web/dist` en cada push
+a `main`. Hay que activar una vez **Settings → Pages → Source: GitHub Actions**. La web queda
+en `https://<usuario>.github.io/<repositorio>/` (la base se pasa con `vite build --base`).
+
+GitHub Pages no sirve los `.br`/`.gz` precomprimidos, así que `engine.ts` pide él mismo los
+`.gz` y los descomprime con `DecompressionStream` (~5,4 MB en lugar de ~20 MB). Si falla, usa
+la URL normal. En local, con Git Bash, usar `MSYS_NO_PATHCONV=1` al pasar `--base /x/`.
+
 ## Tests
 
 ```bash
@@ -57,8 +67,12 @@ cd web && npm run typecheck && npm run lint
 - **PokeSave.Core separado de PokeSave.Wasm.** La lógica se prueba con xUnit en .NET normal, sin
   navegador. El proyecto WASM solo serializa y pasa bytes.
 - **JSON con generador de código** (`PokeSaveJson`): compatible con trimming, sin reflexión.
-- **Sin sprites oficiales.** Cada especie se dibuja como un "orbe" con color derivado de su
-  número. Ver "Riesgos" en la especificación.
+- **Sprites desde PokéAPI, no desde el repositorio.** `theme.ts → spriteUrl` enlaza a
+  `raw.githubusercontent.com/PokeAPI/sprites` (animados de Blanco/Negro hasta #649, estáticos
+  después). Ninguna imagen oficial se guarda en el repo. Si no cargan (sin conexión, huevo,
+  especie sin sprite) se dibuja el "orbe" propio. Contrapartida: el navegador pide a GitHub los
+  sprites de las especies del equipo; la partida en sí no sale del dispositivo. Las formas
+  regionales aún no se distinguen.
 - **Robustez:** un dato ilegible (p. ej. dinero en un bloque que falta) sale como `null` en vez
   de impedir abrir la partida.
 - **No se filtra por tamaño de archivo** antes de abrir: las partidas de Switch no tienen

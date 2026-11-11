@@ -37,7 +37,7 @@ npm run engine   # compila el motor C# a WebAssembly
 npm run dev
 ```
 
-Tests: `dotnet test` en la raíz. Más detalles en [CLAUDE.md](CLAUDE.md).
+Tests: `dotnet test` en la raíz. Se publica sola en GitHub Pages con cada push a `main`. Más detalles en [CLAUDE.md](CLAUDE.md).
 
 ## Créditos y licencia
 
@@ -45,4 +45,6 @@ Basado en [PKHeX](https://github.com/kwsch/PKHeX) de Kaphotics y colaboradores. 
 licencia [GPL-3.0](LICENSE).
 
 Proyecto no oficial, sin relación con Nintendo, Game Freak, Creatures ni The Pokémon Company.
-No incluye ROMs, partidas de terceros ni material gráfico oficial.
+No incluye ROMs ni partidas de terceros. Los sprites se cargan desde
+[PokéAPI/sprites](https://github.com/PokeAPI/sprites) y no se guardan en este repositorio;
+son propiedad de sus respectivos dueños.
