@@ -3,8 +3,11 @@ import { downloadBytes, loadEngine, type Engine, type Progress } from './engine'
 import { I18nContext, detectLang, makeT, useI18n, type Key, type Lang } from './i18n'
 import type { SaveSummary } from './types'
 import { SaveView } from './components/SaveView'
-import { Icon, Logo } from './components/visuals'
+import { Icon, Logo, PokeBall } from './components/visuals'
 import { gameAccent } from './theme'
+import '@fontsource-variable/fredoka'
+import '@fontsource/press-start-2p/latin-400.css'
+import '@fontsource/press-start-2p/latin-ext-400.css'
 
 type EngineState = { status: 'loading'; progress: Progress | null } | { status: 'ready'; engine: Engine } | { status: 'error' }
 type Loaded = { save: SaveSummary; fileName: string; parseMs: number }
@@ -181,14 +184,17 @@ export default function App() {
   return (
     <I18nContext.Provider value={{ lang, t }}>
       <div className={`app${dragging ? ' app--dragging' : ''}`}>
-        <div className="backdrop" aria-hidden="true" />
+        <div className="sky" aria-hidden="true">
+          <PokeBall size={340} className="sky__ball sky__ball--1" />
+          <PokeBall size={180} className="sky__ball sky__ball--2" />
+        </div>
 
         <header className="topbar">
           <a className="brand" href="./" aria-label="PokeSave">
             <Logo />
             <span className="brand__text">
               <strong>PokeSave</strong>
-              <small>{t('tagline')}</small>
+              <small className="px">{t('tagline')}</small>
             </span>
           </a>
           <div className="topbar__right">
@@ -220,21 +226,27 @@ export default function App() {
         <main className="main">
           {loaded ? (
             <>
-              <SaveView save={loaded.save} fileName={loaded.fileName} onAnother={pickFile} onDownloadOriginal={downloadOriginal} />
               {error && <ErrorBox error={error} />}
+              <SaveView
+                key={loaded.fileName + loaded.parseMs}
+                save={loaded.save}
+                fileName={loaded.fileName}
+                onAnother={pickFile}
+                onDownloadOriginal={downloadOriginal}
+              />
               {engine.status === 'ready' && (
-                <p className="metrics mono">
+                <p className="metrics">
                   {t('metrics', { engine: engine.engine.loadMs, parse: loaded.parseMs, ver: engine.engine.pkhexVersion })}
                 </p>
               )}
             </>
           ) : (
-            <Landing busy={busy} engine={engine} error={error} onPick={pickFile} />
+            <Landing busy={busy} engine={engine} pct={pct} error={error} onPick={pickFile} />
           )}
         </main>
 
         <footer className="footer">
-          <p>
+          <p className="footer__privacy">
             <Icon name="lock" /> {t('privacy')}
           </p>
           <p className="muted">{t('footer')}</p>
@@ -243,8 +255,8 @@ export default function App() {
         {dragging && (
           <div className="drop-overlay" aria-hidden="true">
             <div className="drop-overlay__inner">
-              <Icon name="upload" />
-              {t('dropTitle')}
+              <PokeBall size={120} shake />
+              <span className="px">{t('dropNow')}</span>
             </div>
           </div>
         )}
@@ -256,38 +268,91 @@ export default function App() {
 function Landing({
   busy,
   engine,
+  pct,
   error,
   onPick,
 }: {
   busy: boolean
   engine: EngineState
+  pct: number
   error: { key: Key; hint?: Key } | null
   onPick: () => void
 }) {
   const { t } = useI18n()
-  const status = busy ? (engine.status === 'ready' ? t('dropReading') : t('dropWaiting')) : null
+  const status = busy ? (engine.status === 'ready' ? t('dexReading') : t('dexWaitingEngine')) : null
+  const lights = engine.status === 'ready' ? 'ready' : engine.status === 'error' ? 'error' : 'loading'
+
   return (
     <div className="landing">
       <section className="hero">
+        <p className="hero__kicker px">{t('heroKicker')}</p>
         <h1>
-          {t('heroTitle1')} <span className="grad">{t('heroTitle2')}</span>
+          {t('heroTitle1')} <span className="hero__accent">{t('heroTitle2')}</span>
         </h1>
         <p className="lead">{t('heroBody')}</p>
       </section>
 
-      <button type="button" className={`dropzone${busy ? ' dropzone--busy' : ''}`} onClick={onPick} disabled={busy}>
-        <span className="dropzone__icon">
-          <Icon name="upload" />
-        </span>
-        <span className="dropzone__title">{status ?? t('dropTitle')}</span>
-        {!status && (
-          <span className="dropzone__sub">
-            {t('dropOr')} <u>{t('dropButton')}</u>
+      <div className={`dex dex--${lights}`}>
+        <div className="dex__top">
+          <span className="dex__lens" aria-hidden="true">
+            <span />
           </span>
-        )}
-        <span className="dropzone__hint">{t('dropHint')}</span>
-        {busy && <span className="dropzone__scan" aria-hidden="true" />}
-      </button>
+          <span className="dex__leds" aria-hidden="true">
+            <i className="r" />
+            <i className="y" />
+            <i className="g" />
+          </span>
+          <span className="dex__status px" role="status" aria-live="polite">
+            {engine.status === 'loading' && `${t('engineLoading')} ${pct}%`}
+            {engine.status === 'ready' && t('engineReady')}
+            {engine.status === 'error' && t('engineError')}
+          </span>
+        </div>
+
+        <div className="dex__frame">
+          <span className="dex__dots" aria-hidden="true">
+            <i />
+            <i />
+          </span>
+          <button type="button" className={`dex__screen${busy ? ' is-busy' : ''}`} onClick={onPick} disabled={busy}>
+            <span className="dex__scanlines" aria-hidden="true" />
+            {busy ? (
+              <PokeBall size={84} shake />
+            ) : (
+              <span className="dex__icon" aria-hidden="true">
+                <Icon name="upload" />
+              </span>
+            )}
+            <span className="dex__title px">{status ?? t('dexInsert')}</span>
+            {!status && (
+              <span className="dex__sub">
+                {t('dexDrop')} {t('dexOr')} <u>{t('dexButton')}</u>
+              </span>
+            )}
+            <span className="dex__hint px">{t('dexHint')}</span>
+            {engine.status === 'loading' && !busy && (
+              <span className="dex__progress" aria-hidden="true">
+                <span style={{ width: `${pct}%` }} />
+              </span>
+            )}
+          </button>
+          <span className="dex__speaker" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <i />
+          </span>
+        </div>
+
+        <div className="dex__controls" aria-hidden="true">
+          <span className="dex__dpad" />
+          <span className="dex__pills">
+            <i />
+            <i />
+          </span>
+          <span className="dex__btn" />
+        </div>
+      </div>
 
       {error && <ErrorBox error={error} />}
       {engine.status === 'error' && <ErrorBox error={{ key: 'errEngine' }} />}
@@ -303,13 +368,13 @@ function Landing({
 
 function Feature({ icon, title, body }: { icon: 'lock' | 'layers' | 'shield'; title: string; body: string }) {
   return (
-    <li className="feature card">
+    <li className="feature dialog">
       <span className="feature__icon">
         <Icon name={icon} />
       </span>
       <div>
-        <h3>{title}</h3>
-        <p className="muted">{body}</p>
+        <h3 className="px">{title}</h3>
+        <p>{body}</p>
       </div>
     </li>
   )
@@ -318,10 +383,11 @@ function Feature({ icon, title, body }: { icon: 'lock' | 'layers' | 'shield'; ti
 function ErrorBox({ error }: { error: { key: Key; hint?: Key } }) {
   const { t } = useI18n()
   return (
-    <div className="error card" role="alert">
-      <Icon name="alert" />
+    <div className="dialog dialog--error" role="alert">
+      <PokeBall size={36} />
       <div>
-        <strong>{t(error.key)}</strong>
+        <strong className="px">{t('ohNo')}</strong>
+        <p>{t(error.key)}</p>
         {error.hint && <p className="muted">{t(error.hint)}</p>}
       </div>
     </div>
@@ -333,22 +399,13 @@ function EnginePill({ state, pct, onRetry }: { state: EngineState; pct: number; 
   if (state.status === 'error')
     return (
       <button type="button" className="pill pill--error" onClick={onRetry}>
-        <Icon name="refresh" /> {t('retry')}
+        <Icon name="refresh" /> <span className="pill__text">{t('retry')}</span>
       </button>
     )
-  if (state.status === 'ready')
-    return (
-      <span className="pill pill--ready" role="status">
-        <span className="pill__dot" /> <span className="pill__text">{t('engineReady')}</span>
-      </span>
-    )
   return (
-    <span className="pill" role="status" aria-live="polite">
-      <span className="pill__bar" style={{ width: `${pct}%` }} aria-hidden="true" />
-      <span className="pill__spinner" aria-hidden="true" />
-      <span className="pill__text">
-        {t('engineLoading')} <span className="mono">{pct}%</span>
-      </span>
+    <span className={`pill${state.status === 'ready' ? ' pill--ready' : ''}`} role="status">
+      <PokeBall size={18} shake={state.status === 'loading'} />
+      <span className="pill__text px">{state.status === 'ready' ? t('engineReady') : `${pct}%`}</span>
     </span>
   )
 }

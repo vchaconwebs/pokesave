@@ -1,33 +1,68 @@
 // Elementos gráficos. Los sprites NO están en el repositorio: se cargan desde el repositorio
 // público de PokéAPI (ver "Riesgos" en la especificación). Si no cargan, se dibuja un "orbe"
-// propio generado a partir del número de Pokédex.
-import { useState } from 'react'
-import { spriteUrl, speciesHue } from '../theme'
+// propio generado a partir del número de Pokédex. El resto (Poké Ball, Pokédex…) son
+// dibujos propios en SVG/CSS.
+import { useState, type CSSProperties } from 'react'
+import type { TypeInfo } from '../types'
+import { spriteUrl, speciesHue, typeColor, typeInk } from '../theme'
 
-export function Logo({ size = 32 }: { size?: number }) {
+export function Logo({ size = 36 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 36 36" aria-hidden="true" className="logo">
       <defs>
-        <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="var(--accent)" />
-          <stop offset="1" stopColor="var(--accent-2)" />
+        <linearGradient id="logo-shine" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity=".25" />
+          <stop offset=".5" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d="M7 3h14l6 6v17a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" fill="url(#lg)" />
-      <rect x="9" y="6" width="11" height="7" rx="1.5" fill="var(--logo-ink)" opacity=".9" />
-      <rect x="16" y="7.5" width="2.4" height="4" rx=".6" fill="url(#lg)" />
-      <path d="M16 17.2l1.5 3.1 3.4.5-2.5 2.4.6 3.4-3-1.6-3 1.6.6-3.4-2.5-2.4 3.4-.5z" fill="var(--logo-ink)" />
+      <rect x="2" y="2" width="32" height="32" rx="9" fill="#e3242b" />
+      <rect x="2" y="2" width="32" height="32" rx="9" fill="url(#logo-shine)" />
+      <circle cx="13" cy="13" r="6.5" fill="#fff" />
+      <circle cx="13" cy="13" r="4.6" fill="#29a8ff" />
+      <circle cx="11.4" cy="11.4" r="1.6" fill="#fff" opacity=".85" />
+      <circle cx="24" cy="9" r="2" fill="#ff6b6b" stroke="#7a0f17" strokeWidth=".8" />
+      <circle cx="29" cy="9" r="2" fill="#ffd23f" stroke="#7a0f17" strokeWidth=".8" />
+      <rect x="8" y="23" width="20" height="5" rx="2.5" fill="#7a0f17" opacity=".55" />
     </svg>
   )
 }
 
-/** Sprite del Pokémon con el orbe como respaldo (huevos, sin conexión o sprite inexistente). */
+/** Poké Ball dibujada a mano. `shake` la hace temblar como en una captura. */
+export function PokeBall({ size = 48, shake = false, className = '' }: { size?: number; shake?: boolean; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      aria-hidden="true"
+      className={`pokeball${shake ? ' pokeball--shake' : ''} ${className}`}
+    >
+      <circle cx="50" cy="50" r="46" fill="#f4f4f4" />
+      <path d="M4 50a46 46 0 0 1 92 0z" fill="#ee1b24" />
+      <path d="M22 26a34 34 0 0 1 22-12" fill="none" stroke="#fff" strokeOpacity=".55" strokeWidth="6" strokeLinecap="round" />
+      <rect x="4" y="46" width="92" height="8" fill="#1d1f2b" />
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#1d1f2b" strokeWidth="6" />
+      <circle cx="50" cy="50" r="15" fill="#f4f4f4" stroke="#1d1f2b" strokeWidth="6" />
+      <circle cx="50" cy="50" r="7" fill="#fff" stroke="#d6d6d6" strokeWidth="2" className="pokeball__button" />
+    </svg>
+  )
+}
+
+export function TypeBadge({ type }: { type: TypeInfo }) {
+  return (
+    <span className="type" style={{ ['--t' as string]: typeColor(type.id), ['--t-ink' as string]: typeInk(type.id) } as CSSProperties}>
+      {type.name}
+    </span>
+  )
+}
+
+/** Sprite del Pokémon sobre su plataforma, con el orbe como respaldo. */
 export function MonSprite({
   species,
   name,
   shiny,
   egg,
-  size = 72,
+  size = 96,
 }: {
   species: number
   name: string
@@ -38,56 +73,52 @@ export function MonSprite({
   const url = egg ? null : spriteUrl(species, shiny)
   const [failed, setFailed] = useState<string | null>(null)
   const [loaded, setLoaded] = useState<string | null>(null)
-
-  if (!url || failed === url) return <SpeciesOrb species={species} name={name} shiny={shiny} egg={egg} size={size} />
+  const still = !!url && !url.endsWith('.gif')
 
   return (
-    <div
-      className={`sprite${shiny ? ' sprite--shiny' : ''}${loaded === url ? ' sprite--loaded' : ''}`}
-      style={{ width: size, height: size, ['--h' as string]: speciesHue(species) }}
-    >
-      <img
-        src={url}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        onLoad={() => setLoaded(url)}
-        onError={() => setFailed(url)}
-      />
-      {shiny && <span className="orb__spark">✦</span>}
+    <div className="stage" style={{ width: size, height: size }}>
+      <span className="stage__platform" aria-hidden="true" />
+      {!url || failed === url ? (
+        <SpeciesOrb species={species} name={name} egg={egg} size={Math.round(size * 0.62)} />
+      ) : (
+        <img
+          className={`stage__sprite${loaded === url ? ' is-loaded' : ''}${still ? ' stage__sprite--still' : ''}`}
+          src={url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          onLoad={() => setLoaded(url)}
+          onError={() => setFailed(url)}
+        />
+      )}
+      {shiny && (
+        <span className="stage__sparkles" aria-hidden="true">
+          <i>✦</i>
+          <i>✦</i>
+          <i>✦</i>
+        </span>
+      )}
     </div>
   )
 }
 
-export function SpeciesOrb({
-  species,
-  name,
-  shiny,
-  egg,
-  size = 72,
-}: {
-  species: number
-  name: string
-  shiny: boolean
-  egg: boolean
-  size?: number
-}) {
-  const h = speciesHue(species)
+export function SpeciesOrb({ species, name, egg, size = 64 }: { species: number; name: string; egg: boolean; size?: number }) {
   const initials = egg ? '' : name.replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2)
   return (
     <div
-      className={`orb${shiny ? ' orb--shiny' : ''}${egg ? ' orb--egg' : ''}`}
-      style={{ width: size, height: size, ['--h' as string]: h }}
+      className={`orb${egg ? ' orb--egg' : ''}`}
+      style={{ width: size, height: size, ['--h' as string]: speciesHue(species) } as CSSProperties}
       aria-hidden="true"
     >
       <span className="orb__initials">{initials}</span>
-      {shiny && <span className="orb__spark">✦</span>}
     </div>
   )
 }
 
-export function Icon({ name }: { name: 'lock' | 'layers' | 'shield' | 'upload' | 'download' | 'sun' | 'moon' | 'check' | 'alert' | 'refresh' }) {
+type IconName = 'lock' | 'layers' | 'shield' | 'upload' | 'download' | 'sun' | 'moon' | 'check' | 'alert' | 'refresh'
+
+export function Icon({ name }: { name: IconName }) {
   const p = {
     lock: <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
     layers: <><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></>,

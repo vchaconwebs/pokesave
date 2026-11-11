@@ -33,3 +33,36 @@ const GAME_ACCENTS: Record<string, [string, string]> = {
 }
 
 export const gameAccent = (gameId: string | undefined) => (gameId && GAME_ACCENTS[gameId]) || null
+
+/** Colores de tipo (paleta habitual de la comunidad), por id de PKHeX. */
+const TYPE_COLORS = [
+  '#A8A77A', // Normal
+  '#C22E28', // Lucha
+  '#A98FF3', // Volador
+  '#A33EA1', // Veneno
+  '#E2BF65', // Tierra
+  '#B6A136', // Roca
+  '#A6B91A', // Bicho
+  '#735797', // Fantasma
+  '#B7B7CE', // Acero
+  '#EE8130', // Fuego
+  '#6390F0', // Agua
+  '#7AC74C', // Planta
+  '#F7D02C', // Eléctrico
+  '#F95587', // Psíquico
+  '#96D9D6', // Hielo
+  '#6F35FC', // Dragón
+  '#705746', // Siniestro
+  '#D685AD', // Hada
+  '#40B5A5', // Astral
+]
+
+export const typeColor = (id: number) => TYPE_COLORS[id] ?? TYPE_COLORS[0]
+
+/** Texto oscuro sobre los tipos claros (Eléctrico, Hielo…) para que el contraste sea bueno. */
+export function typeInk(id: number) {
+  const hex = typeColor(id).slice(1)
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  return lum > 0.6 ? '#1b1d26' : '#ffffff'
+}

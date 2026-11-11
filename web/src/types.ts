@@ -46,8 +46,21 @@ export interface PokemonInfo {
   nature: string | null
   ability: string | null
   heldItem: string | null
-  moves: string[]
+  types: TypeInfo[]
+  moves: MoveSlot[]
   hpCurrent: number
   hpMax: number
   legal: boolean | null
+}
+
+/** id sigue el orden de PKHeX: 0 Normal … 17 Hada, 18 Astral. */
+export interface TypeInfo {
+  id: number
+  name: string
+}
+
+export interface MoveSlot {
+  id: number
+  name: string
+  type: TypeInfo
 }
