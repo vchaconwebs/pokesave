@@ -215,7 +215,7 @@ public sealed partial class SaveSession
         bool sameFormat = sav.PKMExtensions.Contains(ext) && (data.Length == sav.SIZE_STORED || data.Length == sav.SIZE_PARTY);
         try
         {
-            pk = sameFormat ? sav.GetDecryptedPKM(data.ToArray()) : EntityFormat.GetFromBytes(data.ToArray(), sav.Context);
+            pk = sameFormat ? FromDecrypted(data) : EntityFormat.GetFromBytes(data.ToArray(), sav.Context);
         }
         catch
         {
@@ -232,6 +232,23 @@ public sealed partial class SaveSession
             pk = converted;
         }
         return Place(at, pk, language);
+    }
+
+    /// <summary>
+    /// Los .pk* se guardan descifrados. OJO: SaveFile.GetDecryptedPKM espera datos cifrados
+    /// (los descifra), así que aquí se copian los bytes en un Pokémon del tipo de la partida.
+    /// </summary>
+    private PKM? FromDecrypted(byte[] data)
+    {
+        var pk = Save.BlankPKM;
+        if (data.Length > pk.Data.Length)
+            return null;
+        data.CopyTo(pk.Data);
+        if (!pk.ChecksumValid)
+            return null;
+        if (data.Length < pk.SIZE_PARTY)
+            pk.ResetPartyStats();
+        return pk;
     }
 
     /// <summary>Crea un Pokémon a partir de un texto en formato Showdown (en cualquier idioma).</summary>

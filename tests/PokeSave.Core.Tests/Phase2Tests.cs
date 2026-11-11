@@ -325,6 +325,21 @@ public class Phase2Tests
         Assert.Contains("Jolly Nature", text);
     }
 
+    [Fact]
+    public void Showdown_exportar_a_archivo_e_importar_de_nuevo()
+    {
+        var s = Open();
+        var box = new SlotRef(SlotRef.BoxKind, 1, 0);
+        Assert.True(s.ImportShowdown(box, Garchomp).Ok);
+        var export = s.ExportPokemon(box)!.Value;
+
+        var other = new SlotRef(SlotRef.BoxKind, 1, 1);
+        var r = s.ImportPokemonFile(other, export.Data, export.Info.FileName);
+        Assert.True(r.Ok, r.Error);
+        Assert.Equal((int)Species.Garchomp, r.Pokemon!.Edit.Species);
+        Assert.Equal([(int)Move.Earthquake, (int)Move.DragonClaw, (int)Move.StoneEdge, (int)Move.FireFang], r.Pokemon.Edit.Moves);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("esto no es un pokémon")]
