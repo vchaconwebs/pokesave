@@ -242,9 +242,12 @@ public class EditingTests
     [Theory]
     [InlineData(GameVersion.E)]
     [InlineData(GameVersion.Pt)]
-    public void Gen_3_y_4_naturaleza_variocolor_y_habilidad_a_la_vez(GameVersion version)
+    [InlineData(GameVersion.W)]
+    [InlineData(GameVersion.X)]
+    [InlineData(GameVersion.BD)]
+    public void Naturaleza_variocolor_y_habilidad_a_la_vez(GameVersion version)
     {
-        // En Gen 3/4 los tres dependen del PID. No se puede escribir su partida en blanco,
+        // En Gen 3-5 dependen del PID. Las partidas en blanco de Gen 3/4 no se pueden escribir,
         // así que se prueba directamente sobre el Pokémon.
         var sav = BlankSaveFile.Get(version, "TESTER", LanguageID.English);
         var s = SaveSession.FromSaveNoExport(sav);
@@ -253,12 +256,46 @@ public class EditingTests
         pk.CurrentLevel = 30;
         pk.Move1 = (ushort)Move.Lick;
 
-        var edit = new PokemonEdit((int)Species.Gengar, "", false, 30, (int)Nature.Timid, 0, 0, true,
-            [(int)Move.Lick, 0, 0, 0], [31, 0, 31, 31, 31, 31], [0, 0, 0, 0, 0, 0]);
-        Assert.Null(s.Apply(pk, edit));
-        Assert.Equal(Nature.Timid, pk.Nature);
-        Assert.True(pk.IsShiny);
-        Assert.Equal(1, pk.AbilityNumber);
+        pk.Gender = 1;
+
+        // Muchas combinaciones seguidas: el fallo era intermitente (dependía del PID al azar).
+        for (int i = 0; i < 200; i++)
+        {
+            var nature = (Nature)(i % 25);
+            bool shiny = i % 2 == 0;
+            var edit = new PokemonEdit((int)Species.Gengar, "", false, 30, (int)nature, 0, 0, shiny,
+                [(int)Move.Lick, 0, 0, 0], [31, 0, 31, 31, 31, 31], [0, 0, 0, 0, 0, 0]);
+            Assert.Null(s.Apply(pk, edit));
+            Assert.Equal(nature, pk.Nature);
+            Assert.Equal(shiny, pk.IsShiny);
+            Assert.Equal(1, pk.AbilityNumber);
+            Assert.Equal(1, pk.Gender); // el sexo se conserva
+        }
+    }
+
+    [Fact]
+    public void Vista_previa_no_toca_la_partida()
+    {
+        var s = OpenDetectable(GameVersion.W);
+        var before = s.Export();
+        var d = Detail(s, First);
+
+        var preview = s.PreviewPokemon(First, d.Edit with { Species = (int)Species.Raichu, Level = 80 });
+
+        Assert.True(preview.Ok, preview.Error);
+        Assert.Equal((int)Species.Raichu, preview.Pokemon!.Edit.Species);
+        Assert.True(preview.Pokemon.Stats[0] > d.Stats[0]);
+        Assert.Equal(before, s.Export());
+    }
+
+    [Fact]
+    public void Cambiar_de_especie_con_habilidad_inexistente_vuelve_a_la_primera()
+    {
+        var s = OpenDetectable(GameVersion.W);
+        // Índice inexistente en la nueva especie.
+        var r = s.SetPokemon(First, Detail(s, First).Edit with { Species = (int)Species.Shedinja, AbilityIndex = 5 });
+        Assert.True(r.Ok, r.Error);
+        Assert.Equal(0, r.Pokemon!.Edit.AbilityIndex);
     }
 
     [Fact]

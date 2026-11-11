@@ -64,6 +64,21 @@ public sealed partial class SaveSession
         return new EditResult(true, null, Detail(at, fresh, language), GetSummary(language));
     }
 
+    /// <summary>
+    /// Aplica los cambios a una copia y devuelve cómo quedaría (stats, habilidades de la nueva
+    /// especie, legalidad) sin tocar la partida. La UI lo usa mientras se edita.
+    /// </summary>
+    public EditResult PreviewPokemon(SlotRef at, PokemonEdit edit, string language = "es")
+    {
+        var pk = Read(at);
+        if (pk is null)
+            return new EditResult(false, "slot", null, null);
+        var error = Apply(pk, edit);
+        return error is null
+            ? new EditResult(true, null, Detail(at, pk, language), null)
+            : new EditResult(false, error, null, null);
+    }
+
     public EditResult SetTrainer(TrainerEdit edit, string language = "es")
     {
         var sav = Save;
@@ -172,8 +187,13 @@ public sealed partial class SaveSession
             pk.Gender = pk.GetSaneGender();
         }
 
-        if (limits.HasAbility && (e.AbilityIndex < 0 || e.AbilityIndex >= pk.PersonalInfo.AbilityCount))
+        // Al cambiar de especie, una habilidad que no exista en la nueva vuelve a la primera.
+        int abilityIndex = e.AbilityIndex;
+        if (speciesChanged && limits.HasAbility && (abilityIndex < 0 || abilityIndex >= pk.PersonalInfo.AbilityCount))
+            abilityIndex = 0;
+        if (limits.HasAbility && (abilityIndex < 0 || abilityIndex >= pk.PersonalInfo.AbilityCount))
             return "ability";
+        e = e with { AbilityIndex = abilityIndex };
 
         // --- Nivel (fija la experiencia) ---
         pk.CurrentLevel = (byte)e.Level;
@@ -218,6 +238,9 @@ public sealed partial class SaveSession
 
     private static bool ApplyPidTraits(PKM pk, PokemonEdit e, EditLimits limits)
     {
+        if (pk.Format is 3 or 4)
+            return SearchPid34(pk, e);
+
         for (int attempt = 0; attempt < 64; attempt++)
         {
             if (limits.HasNature && (int)pk.Nature != e.Nature)
@@ -242,7 +265,51 @@ public sealed partial class SaveSession
         return false;
     }
 
-    private static int AbilitySlot(PKM pk) => pk.AbilityNumber switch { 2 => 1, 4 => 2, _ => 0 };
+    /// <summary>
+    /// Gen 3/4: naturaleza (PID % 25), habilidad (bit 0), sexo (byte bajo) y variocolor
+    /// salen todos del mismo PID. Corregirlos de uno en uno puede dar vueltas sin fin, así
+    /// que se busca directamente un PID que cumpla los cuatro, conservando el sexo.
+    /// </summary>
+    private static bool SearchPid34(PKM pk, PokemonEdit e)
+    {
+        uint current = pk.PID;
+        bool sameAsNow = (int)(current % 25) == e.Nature
+            && (int)(current & 1) == e.AbilityIndex
+            && pk.IsShiny == e.IsShiny;
+        if (sameAsNow)
+            return true;
+
+        byte ratio = pk.PersonalInfo.Gender;
+        bool genderMatters = ratio is not (0 or 254 or 255);
+        bool female = pk.Gender == 1;
+        uint trainer = (uint)(pk.TID16 ^ pk.SID16);
+        var rng = Random.Shared;
+
+        for (int attempt = 0; attempt < 1_000_000; attempt++)
+        {
+            uint low = (uint)rng.Next(0x10000);
+            uint high = e.IsShiny
+                ? (trainer ^ low ^ (uint)rng.Next(8)) & 0xFFFF
+                : (uint)rng.Next(0x10000);
+            uint pid = (high << 16) | low;
+
+            if ((pid % 25) != (uint)e.Nature || (pid & 1) != (uint)e.AbilityIndex)
+                continue;
+            if (genderMatters && ((pid & 0xFF) < ratio) != female)
+                continue;
+            bool shiny = (trainer ^ high ^ low) < 8;
+            if (shiny != e.IsShiny)
+                continue;
+
+            pk.PID = pid;
+            pk.RefreshAbility(e.AbilityIndex);
+            return (int)pk.Nature == e.Nature && pk.IsShiny == e.IsShiny;
+        }
+        return false;
+    }
+
+    /// <summary>Hueco de habilidad 0/1/2 (oculta), o -1 si el Pokémon no tiene ninguno fijado.</summary>
+    private static int AbilitySlot(PKM pk) => pk.AbilityNumber switch { 1 => 0, 2 => 1, 4 => 2, _ => -1 };
 
     private static void SetStats(PKM pk, IReadOnlyList<int> values, bool isIV, EditLimits limits)
     {
@@ -295,7 +362,7 @@ public sealed partial class SaveSession
             IsNicknamed: pk.IsNicknamed && pk.Nickname.Length > 0,
             Level: pk.CurrentLevel,
             Nature: limits.HasNature ? (int)pk.Nature : 0,
-            AbilityIndex: limits.HasAbility ? AbilitySlot(pk) : 0,
+            AbilityIndex: limits.HasAbility ? Math.Max(0, AbilitySlot(pk)) : 0,
             HeldItem: limits.HasHeldItem ? pk.HeldItem : 0,
             IsShiny: pk.IsShiny,
             Moves: [pk.Move1, pk.Move2, pk.Move3, pk.Move4],

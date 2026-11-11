@@ -1,7 +1,7 @@
 // Carga perezosa del motor .NET WebAssembly (PKHeX.Core). La interfaz se pinta al
 // momento y el motor se descarga en segundo plano. Nada de esto hace peticiones con la
 // partida: los bytes solo viajan entre JS y WASM dentro de la pestaña.
-import type { LoadResult } from './types'
+import type { BoxView, EditResult, GameLists, LoadResult, PokemonDetail, PokemonEdit, SlotRef, TrainerEdit } from './types'
 
 interface EngineExports {
   Load(data: Uint8Array, fileName: string, language: string): string
@@ -9,12 +9,24 @@ interface EngineExports {
   Export(): Uint8Array
   ExportOriginal(): Uint8Array
   PkhexVersion(): string
+  Lists(language: string): string
+  Box(box: number, language: string): string
+  Pokemon(slotJson: string, language: string): string
+  SetPokemon(slotJson: string, editJson: string, language: string): string
+  SetTrainer(editJson: string, language: string): string
 }
 
 export interface Engine {
   load(data: Uint8Array, fileName: string, language: string): LoadResult
   summary(language: string): LoadResult
   exportOriginal(): Uint8Array
+  /** Partida editada, con checksums recalculados. */
+  exportSave(): Uint8Array
+  lists(language: string): GameLists | null
+  box(box: number, language: string): BoxView | null
+  pokemon(at: SlotRef, language: string): PokemonDetail | null
+  setPokemon(at: SlotRef, edit: PokemonEdit, language: string): EditResult
+  setTrainer(edit: TrainerEdit, language: string): EditResult
   pkhexVersion: string
   loadMs: number
 }
@@ -49,6 +61,13 @@ async function start(onProgress?: (p: Progress) => void): Promise<Engine> {
     load: (data, fileName, language) => parse(exports.Load(data, fileName, language)),
     summary: (language) => parse(exports.Summary(language)),
     exportOriginal: () => exports.ExportOriginal(),
+    exportSave: () => exports.Export(),
+    lists: (language) => JSON.parse(exports.Lists(language)) as GameLists | null,
+    box: (box, language) => JSON.parse(exports.Box(box, language)) as BoxView | null,
+    pokemon: (at, language) => JSON.parse(exports.Pokemon(JSON.stringify(at), language)) as PokemonDetail | null,
+    setPokemon: (at, edit, language) =>
+      JSON.parse(exports.SetPokemon(JSON.stringify(at), JSON.stringify(edit), language)) as EditResult,
+    setTrainer: (edit, language) => JSON.parse(exports.SetTrainer(JSON.stringify(edit), language)) as EditResult,
     pkhexVersion: exports.PkhexVersion(),
     loadMs: Math.round(performance.now() - t0),
   }

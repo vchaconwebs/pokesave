@@ -78,6 +78,17 @@ public static partial class Engine
     }
 
     [JSExport]
+    public static string PreviewPokemon(string slotJson, string editJson, string language)
+    {
+        var at = Parse(slotJson, PokeSaveJson.Default.SlotRef);
+        var edit = Parse(editJson, PokeSaveJson.Default.PokemonEdit);
+        var result = _session is null || at is null || edit is null
+            ? new EditResult(false, "input", null, null)
+            : _session.PreviewPokemon(at, edit, language);
+        return JsonSerializer.Serialize(result, PokeSaveJson.Default.EditResult);
+    }
+
+    [JSExport]
     public static string SetTrainer(string editJson, string language)
     {
         var edit = Parse(editJson, PokeSaveJson.Default.TrainerEdit);

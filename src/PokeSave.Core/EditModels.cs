@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PokeSave.Core;
 
 // Modelos de la Fase 1 (edición). Viajan como JSON entre la UI y el motor.
@@ -36,15 +38,15 @@ public sealed record PokemonEdit(
     int HeldItem,
     bool IsShiny,
     IReadOnlyList<int> Moves,
-    IReadOnlyList<int> IVs,
-    IReadOnlyList<int> EVs);
+    [property: JsonPropertyName("ivs")] IReadOnlyList<int> IVs,
+    [property: JsonPropertyName("evs")] IReadOnlyList<int> EVs);
 
 /// <summary>Qué se puede editar en esta generación y con qué límites.</summary>
 public sealed record EditLimits(
     int MaxLevel,
-    int MaxIV,
-    int MaxEV,
-    int MaxEVTotal,
+    [property: JsonPropertyName("maxIv")] int MaxIV,
+    [property: JsonPropertyName("maxEv")] int MaxEV,
+    [property: JsonPropertyName("maxEvTotal")] int MaxEVTotal,
     int MaxNicknameLength,
     bool HasNature,
     bool HasAbility,
