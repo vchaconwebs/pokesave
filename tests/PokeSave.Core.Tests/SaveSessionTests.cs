@@ -260,12 +260,53 @@ public class LocalSaveTests
         Assert.Equal(summary, reopened!.GetSummary(), new SummaryComparer());
     }
 
+    [Theory]
+    [MemberData(nameof(LocalSaves))]
+    public void Partida_real_sin_cambios_exporta_los_mismos_bytes(string path)
+    {
+        if (path.Length == 0)
+            return;
+        var data = File.ReadAllBytes(path);
+        Assert.True(SaveSession.TryOpen(data, Path.GetFileName(path), out var session, out _));
+        Assert.Equal(data, session!.Export());
+    }
+
+    [Theory]
+    [MemberData(nameof(LocalSaves))]
+    public void Partida_real_editar_nivel_y_dinero(string path)
+    {
+        // Criterio de aceptación 3, con una partida de verdad.
+        if (path.Length == 0)
+            return;
+        var name = Path.GetFileName(path);
+        Assert.True(SaveSession.TryOpen(File.ReadAllBytes(path), name, out var session, out _));
+        var first = new SlotRef(SlotRef.Party, 0, 0);
+        var detail = session!.GetPokemon(first);
+        Assert.NotNull(detail);
+
+        int level = detail!.Edit.Level == 100 ? 99 : detail.Edit.Level + 1;
+        var r = session.SetPokemon(first, detail.Edit with { Level = level });
+        Assert.True(r.Ok, r.Error);
+        uint money = (session.GetSummary().Trainer.Money ?? 0) == 1234 ? 4321u : 1234u;
+        Assert.True(session.SetTrainer(new TrainerEdit(session.Save.OT, money)).Ok);
+
+        Assert.True(SaveSession.TryOpen(session.Export(), name, out var reopened, out _));
+        Assert.True(reopened!.Save.ChecksumsValid);
+        var summary = reopened.GetSummary();
+        Assert.Equal(level, summary.Party[0].Level);
+        Assert.Equal(money, summary.Trainer.Money);
+        // El resto del equipo no se toca.
+        Assert.Equal(session.GetSummary().Party.Count, summary.Party.Count);
+    }
+
     private sealed class SummaryComparer : IEqualityComparer<SaveSummary>
     {
         public bool Equals(SaveSummary? a, SaveSummary? b)
             => a is not null && b is not null
                && a.GameId == b.GameId
-               && a.Trainer == b.Trainer
+               && a.Trainer with { Badges = null } == b.Trainer with { Badges = null }
+               && (a.Trainer.Badges?.Flags ?? []).SequenceEqual(b.Trainer.Badges?.Flags ?? [])
+               && a.BoxNames.SequenceEqual(b.BoxNames)
                && a.Party.SequenceEqual(b.Party, new PokemonComparer())
                && a.StoredCount == b.StoredCount;
 
@@ -275,8 +316,10 @@ public class LocalSaveTests
     private sealed class PokemonComparer : IEqualityComparer<PokemonInfo>
     {
         public bool Equals(PokemonInfo? a, PokemonInfo? b)
-            => a is not null && b is not null && a with { Moves = [] } == b with { Moves = [] }
-               && a.Moves.SequenceEqual(b.Moves);
+            => a is not null && b is not null
+               && a with { Moves = [], Types = [] } == b with { Moves = [], Types = [] }
+               && a.Moves.SequenceEqual(b.Moves)
+               && a.Types.SequenceEqual(b.Types);
 
         public int GetHashCode(PokemonInfo obj) => obj.Species;
     }
