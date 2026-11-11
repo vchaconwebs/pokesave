@@ -116,12 +116,22 @@ public sealed class SaveSession
             // El análisis de legalidad nunca debe impedir mostrar la partida.
         }
 
-        var moves = new List<string>(4);
+        var moves = new List<MoveSlot>(4);
         foreach (var move in new[] { pk.Move1, pk.Move2, pk.Move3, pk.Move4 })
         {
-            if (move != 0)
-                moves.Add(Get(strings.movelist, move) ?? $"#{move}");
+            if (move == 0)
+                continue;
+            int type = Safe(() => (int?)MoveInfo.GetType(move, pk.Context)) ?? 0;
+            moves.Add(new MoveSlot(move, Get(strings.movelist, move) ?? $"#{move}", TypeOf(strings, type)));
         }
+
+        var types = new List<TypeInfo>(2);
+        var personal = pk.PersonalInfo;
+        int type1 = NormalizeType(personal.Type1, pk.Format);
+        int type2 = NormalizeType(personal.Type2, pk.Format);
+        types.Add(TypeOf(strings, type1));
+        if (type2 != type1)
+            types.Add(TypeOf(strings, type2));
 
         return new PokemonInfo(
             Slot: slot,
@@ -137,11 +147,28 @@ public sealed class SaveSession
             Nature: pk.Format >= 3 ? Get(strings.natures, (int)pk.Nature) : null,
             Ability: pk.Format >= 3 ? Get(strings.abilitylist, pk.Ability) : null,
             HeldItem: pk.HeldItem > 0 ? Get(strings.itemlist, pk.HeldItem) : null,
+            Types: types,
             Moves: moves,
             HpCurrent: pk.Stat_HPCurrent,
             HpMax: pk.Stat_HPMax,
             Legal: legal);
     }
+
+    /// <summary>
+    /// En Gen 1 y 2 los datos de especie usan la numeración interna de Game Boy (Fuego = 20,
+    /// Eléctrico = 23…). La pasamos a la de Gen 3+ (Fuego = 9, Eléctrico = 12…).
+    /// Los movimientos ya vienen normalizados desde PKHeX.
+    /// </summary>
+    internal static int NormalizeType(int type, int format) => format > 2 ? type : type switch
+    {
+        <= 5 => type,
+        7 or 8 or 9 => type - 1, // Bicho, Fantasma, Acero
+        >= 20 and <= 27 => type - 11, // Fuego … Siniestro
+        _ => 0,
+    };
+
+    private static TypeInfo TypeOf(GameStrings strings, int type)
+        => new(type, Get(strings.types, type) ?? $"#{type}");
 
     /// <summary>
     /// Lee un dato que puede no existir en la partida (bloques que faltan o corruptos).

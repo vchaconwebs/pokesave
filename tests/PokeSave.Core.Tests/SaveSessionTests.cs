@@ -77,7 +77,11 @@ public class SaveSessionTests
         Assert.Equal((int)Species.Pikachu, first.Species);
         Assert.Equal("Pikachu", first.SpeciesName);
         Assert.Equal(12, first.Level);
-        Assert.Contains("Placaje", first.Moves);
+        Assert.Contains("Placaje", first.Moves.Select(m => m.Name));
+        Assert.Equal("Normal", first.Moves[0].Type.Name);
+        var type = Assert.Single(first.Types);
+        Assert.Equal(12, type.Id); // Eléctrico
+        Assert.Equal("Eléctrico", type.Name);
     }
 
     [Theory]
@@ -170,6 +174,20 @@ public class SaveSessionTests
         Assert.Equal("White", session.GetSummary("en").Game);
     }
 
+    [Theory]
+    [InlineData(20, 9)]  // Fuego
+    [InlineData(23, 12)] // Eléctrico
+    [InlineData(27, 16)] // Siniestro
+    [InlineData(7, 6)]   // Bicho
+    [InlineData(8, 7)]   // Fantasma
+    [InlineData(9, 8)]   // Acero
+    [InlineData(3, 3)]   // Veneno
+    public void Tipos_de_gen_1_y_2_se_normalizan(int gameBoy, int expected)
+    {
+        Assert.Equal(expected, SaveSession.NormalizeType(gameBoy, 2));
+        Assert.Equal(gameBoy, SaveSession.NormalizeType(gameBoy, 3));
+    }
+
     [Fact]
     public void Archivo_vacio_da_error_claro()
     {
@@ -216,7 +234,7 @@ public class LocalSaveTests
         {
             foreach (var file in Directory.EnumerateFiles(dir))
             {
-                if (!Path.GetFileName(file).StartsWith('.'))
+                if (!Path.GetFileName(file).StartsWith('.') && !file.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
                     data.Add(Path.GetFullPath(file));
             }
         }

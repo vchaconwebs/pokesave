@@ -46,10 +46,16 @@ public sealed record PokemonInfo(
     string? Nature,
     string? Ability,
     string? HeldItem,
-    IReadOnlyList<string> Moves,
+    IReadOnlyList<TypeInfo> Types,
+    IReadOnlyList<MoveSlot> Moves,
     int HpCurrent,
     int HpMax,
     bool? Legal);
+
+/// <summary>Tipo elemental. <c>Id</c> sigue el orden de PKHeX (0 Normal … 17 Hada).</summary>
+public sealed record TypeInfo(int Id, string Name);
+
+public sealed record MoveSlot(int Id, string Name, TypeInfo Type);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(LoadResult))]
