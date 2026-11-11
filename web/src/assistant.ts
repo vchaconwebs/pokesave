@@ -78,6 +78,9 @@ export interface Progress {
   postgame: boolean
 }
 
+/** ¿Este juego tiene asistente? De momento solo Blanco y Negro. */
+export const assistantVersion = (gameId: string): Version | null => (gameId === 'W' ? 'W' : gameId === 'B' ? 'B' : null)
+
 /** Medallas que pide cada método además del lugar. */
 const METHOD_NEEDS: Record<string, number> = {
   surf: 6, // Surf (MO03) en el Monte Tuerca, tras la 6.ª medalla
@@ -98,6 +101,7 @@ export const METHOD_GROUP: Record<string, 'grass' | 'water' | 'fishing' | 'speci
   'super-rod': 'fishing',
   'super-rod-spots': 'fishing',
   gift: 'special',
+  'gift-egg': 'special',
   static: 'special',
   'roaming-grass': 'special',
 }
@@ -111,7 +115,8 @@ const level = (p: Progress) => (p.postgame ? 9 : Math.min(8, Math.max(0, p.badge
 
 export function encountersFor(data: BwData, species: number, version: Version, progress: Progress, season: Season): Encounter[] {
   const bit = version === 'B' ? 1 : 2
-  const raw = data.species[species]?.enc ?? []
+  const info = data.species[species]
+  const raw = info?.enc ?? []
   const lvl = level(progress)
   const list: Encounter[] = []
   for (const [loc, method, min, max, chance, v, cond] of raw) {
@@ -121,7 +126,10 @@ export function encountersFor(data: BwData, species: number, version: Version, p
     const encSeason = (seasonCond?.slice(7) as Season | undefined) ?? null
     // Un encuentro de otra estación no está "disponible" ahora, pero se muestra.
     const location = data.locations[loc]
-    const needs = Math.max(location.badges, METHOD_NEEDS[method] ?? 0)
+    // Los legendarios fijos (Cobalion, Terrakion, Virizion, Landorus, Kyurem…) aparecen tras
+    // la Liga. Zekrom/Reshiram en el Castillo de N son parte de la historia.
+    const postLeagueLegend = info?.legend && method === 'static' && location.key !== 'ns-castle'
+    const needs = Math.max(location.badges, METHOD_NEEDS[method] ?? 0, postLeagueLegend ? 9 : 0)
     const note = conds.filter((c) => !c.startsWith('season-')).join('+') || null
     list.push({
       location,

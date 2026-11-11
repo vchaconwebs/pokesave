@@ -19,7 +19,11 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
 - **Fase 2 (edición ampliada): hecha.** Rama `fase-2`. Mochila por bolsillos con buscador,
   Pokédex (vistos/capturados, en bloque), exportar .pk* y Showdown, importar .pk* (también de
   otras generaciones) y Showdown en huecos vacíos, deshacer/rehacer (botones y Ctrl+Z/Ctrl+Y).
-- Siguiente: Fase 3 (asistente de Pokédex, empezando por Blanco/Negro). Proponer un plan antes.
+- **Fase 3 (asistente de Pokédex, Blanco/Negro): hecha.** Rama `fase-3`. Sección "Asistente":
+  qué te falta (Teselia o Nacional), dónde sale en tu versión (lugar, método, niveles,
+  probabilidad, estación), evoluciones e intercambios, exclusivos de la otra versión, eventos y
+  Pokétransfer. Filtros por método y "solo lo que puedo conseguir ya" según medallas y Liga.
+- Siguiente: Fase 4 (buscador de objetos y MT). Proponer un plan antes.
 
 ## Estructura
 
@@ -72,7 +76,7 @@ la URL normal. En local, con Git Bash, usar `MSYS_NO_PATHCONV=1` al pasar `--bas
 
 ```bash
 dotnet test                 # desde la raíz
-cd web && npm run typecheck && npm run lint
+cd web && npm run typecheck && npm run lint && npm test
 ```
 
 ## Decisiones
@@ -154,6 +158,22 @@ cd web && npm run typecheck && npm run lint
 - **Pokédex regional**: Teselia en Blanco/Negro (mismo orden que la Nacional, 494-649 → 000-155),
   Kanto en Gen 1, y las que trae PKHeX en DBPR, SwSh (Galar, Armadura, Corona), Leyendas, SV
   (Paldea, Noroteo, Arándano) y Z-A. Del resto (B2N2, XY, ROZA, SL, USUL…) aún no hay datos.
+
+## Decisiones de la Fase 3
+
+- **Datos**: `node tools/build-bw-data.mjs` genera `web/public/data/bw.json` (56 KB) desde
+  PokéAPI con caché en `tools/.cache/` (no se sube). El JSON sí se versiona. La web lo carga
+  solo al abrir el asistente. `tools/bw-locations.mjs` tiene las correcciones a mano:
+  - Nombres de lugares de España (WikiDex). PokéAPI no los tiene en español; si falta uno se
+    usa el inglés en vez de inventarlo.
+  - Medallas aproximadas por lugar según el orden de la historia (9 = tras la Liga).
+  - Errores de PokéAPI: el Zorua de Game Freak es de N2B2 y Tornadus/Thundurus "en la base
+    del Team Flare" es de XY (en BN vagan por Teselia tras la Liga).
+- **Reglas** (`web/src/assistant.ts`, tests con Vitest en `assistant.test.ts`): Surf pide 6
+  medallas (MO03 en el Monte Tuerca), la Supercaña la Liga (te la da Looker), los legendarios
+  fijos la Liga salvo Zekrom/Reshiram en el Castillo de N. Estación según el mes (ene
+  primavera, feb verano, mar otoño, abr invierno…). Los singulares y Zorua/Zoroark son evento.
+- No sabemos leer de la partida si se ha terminado la Liga: lo marca el usuario (se recuerda).
 
 ## Mediciones de la Fase 0
 

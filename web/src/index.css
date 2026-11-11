@@ -2922,6 +2922,17 @@ p {
 }
 
 
+@media (max-width: 420px) {
+  .nav {
+    gap: 2px;
+    padding: 4px;
+  }
+  .nav__btn {
+    font-size: 13px;
+    padding: 0 4px;
+  }
+}
+
 /* Pokédex regional / nacional */
 .dex-books {
   display: flex;
@@ -2946,6 +2957,268 @@ p {
   background: var(--lcd);
   color: var(--lcd-ink);
   box-shadow: inset 0 -4px 0 rgb(31 59 18 / 0.35);
+}
+
+
+/* =========================================================
+   Fase 3 · asistente de Pokédex
+   ========================================================= */
+.assist {
+  display: grid;
+  gap: 14px;
+}
+.assist__loading {
+  display: grid;
+  place-items: center;
+  padding: 60px 0;
+}
+.assist__lcd {
+  padding: 14px 16px;
+}
+.assist__controls {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+.assist__controls .chips {
+  align-items: center;
+}
+.assist__controls .chip {
+  border: 0;
+  color: var(--text);
+}
+.assist__controls .chip.is-on {
+  color: #fff;
+}
+.assist__controls .field__label {
+  margin-right: 4px;
+}
+.assist__sep {
+  width: 2px;
+  height: 26px;
+  margin: 0 4px;
+  background: var(--line-strong);
+}
+.assist__switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+}
+.assist__note,
+.assist__source {
+  font-size: 13px;
+}
+.assist__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 720px) {
+  .assist__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.assist-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--line), var(--shadow);
+  min-width: 0;
+}
+.assist-card.is-now {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--good) 55%, transparent), var(--shadow);
+}
+.assist-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.assist-card__head img {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.assist-card__head img.is-unseen {
+  filter: brightness(0);
+  opacity: 0.5;
+}
+.assist-card__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.assist-card__title h4 {
+  font-size: 19px;
+  font-weight: 700;
+}
+.assist-card__n {
+  width: 100%;
+  font-size: 8px;
+  color: var(--muted);
+}
+.assist-tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--surface-2);
+}
+.assist-tag--wild {
+  background: #4fc46a;
+  color: #0e2a14;
+}
+.assist-tag--evolve {
+  background: #8a6be0;
+  color: #fff;
+}
+.assist-tag--other-version {
+  background: #1d1f2b;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px var(--line-strong);
+}
+.assist-tag--event {
+  background: var(--gold);
+  color: #2b2100;
+}
+.assist-tag--transfer {
+  background: #3ba6e0;
+  color: #fff;
+}
+.assist-tag--seen {
+  background: none;
+  box-shadow: inset 0 0 0 2px var(--line-strong);
+  color: var(--muted);
+}
+.assist-enc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.assist-enc__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 8px 10px 8px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  box-shadow: inset 5px 0 0 var(--g);
+}
+.assist-enc__row.is-locked {
+  opacity: 0.6;
+}
+.assist-enc__method {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--g);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.assist-enc__place {
+  font-weight: 700;
+}
+.assist-enc__note {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--muted);
+}
+.assist-enc__meta {
+  margin-left: auto;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.assist-enc__lock {
+  width: 100%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mid);
+}
+.assist-evo {
+  font-size: 14px;
+}
+.assist-evo--also {
+  color: var(--muted);
+}
+.assist-places {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.assist-place {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background:
+    repeating-linear-gradient(45deg, rgb(255 255 255 / 0.04) 0 10px, transparent 10px 20px),
+    linear-gradient(160deg, #2e9d6b, #1c6e4b);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+.assist-place__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.assist-place__head h4 {
+  font-size: 18px;
+  font-weight: 700;
+}
+.assist-place__n {
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.25);
+}
+.assist-place__mons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 6px;
+}
+.assist-place__mons li {
+  display: grid;
+  justify-items: center;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.15);
+  text-align: center;
+}
+.assist-place__mons li.is-locked {
+  opacity: 0.55;
+}
+.assist-place__mons img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.assist-place__mons span {
+  font-weight: 700;
+  font-size: 14px;
+}
+.assist-place__mons small {
+  font-size: 11px;
+  opacity: 0.85;
 }
 
 @media (prefers-reduced-motion: reduce) {

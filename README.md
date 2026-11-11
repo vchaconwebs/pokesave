@@ -10,6 +10,7 @@ partida nunca se sube a ningún servidor.
 > habilidad, movimientos, IVs, EVs, variocolor, objeto), entrenador y dinero, mochila,
 > Pokédex, importar/exportar Pokémon (.pk* y Showdown) y deshacer/rehacer. Avisos de
 > legalidad y descarga de la partida lista para tu juego o emulador.
+> **Nuevo (Fase 3):** asistente de Pokédex para Blanco/Negro: qué te falta y dónde encontrarlo.
 
 ## Cómo funciona
 
@@ -51,4 +52,5 @@ licencia [GPL-3.0](LICENSE).
 Proyecto no oficial, sin relación con Nintendo, Game Freak, Creatures ni The Pokémon Company.
 No incluye ROMs ni partidas de terceros. Los sprites se cargan desde
 [PokéAPI/sprites](https://github.com/PokeAPI/sprites) y no se guardan en este repositorio;
-son propiedad de sus respectivos dueños.
+son propiedad de sus respectivos dueños. Los datos de encuentros vienen de
+[PokéAPI](https://pokeapi.co) y los nombres de lugares en español de [WikiDex](https://www.wikidex.net).

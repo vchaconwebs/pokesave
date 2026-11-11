@@ -46,9 +46,9 @@ jobs:
         working-directory: web
         run: npm run engine
 
-      - name: Comprobar tipos y lint
+      - name: Comprobar tipos, lint y tests de la web
         working-directory: web
-        run: npm run typecheck && npm run lint
+        run: npm run typecheck && npm run lint && npm test
 
       - name: Compilar web
         working-directory: web

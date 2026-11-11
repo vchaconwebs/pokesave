@@ -4,7 +4,7 @@ import { useI18n, type Key } from '../i18n'
 import { typeColor, typeInk } from '../theme'
 import { Icon, MonSprite, PokeBall, TypeBadge } from './visuals'
 
-export type Section = 'team' | 'bag' | 'dex'
+export type Section = 'team' | 'bag' | 'dex' | 'assistant'
 
 export function SaveView({
   save,
@@ -20,6 +20,7 @@ export function SaveView({
   onSection,
   bag,
   dex,
+  assistant,
 }: {
   save: SaveSummary
   fileName: string
@@ -34,6 +35,8 @@ export function SaveView({
   onSection: (s: Section) => void
   bag?: ReactNode
   dex?: ReactNode
+  /** Solo en los juegos con asistente (Blanco/Negro). */
+  assistant?: ReactNode
 }) {
   const { t, lang } = useI18n()
   const nf = new Intl.NumberFormat(lang)
@@ -126,6 +129,7 @@ export function SaveView({
             ['team', 'navTeam'],
             ['bag', 'navBag'],
             ['dex', 'navDex'],
+            ...(assistant ? [['assistant', 'navAssistant']] : []),
           ] as [Section, Key][]
         ).map(([id, key]) => (
           <button key={id} type="button" className="nav__btn" aria-pressed={section === id} onClick={() => {
@@ -142,6 +146,7 @@ export function SaveView({
 
       {section === 'bag' && bag}
       {section === 'dex' && dex}
+      {section === 'assistant' && assistant}
 
       {section === 'team' && (
       <section aria-labelledby="team-title">

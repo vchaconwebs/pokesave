@@ -93,6 +93,14 @@ describe('progreso', () => {
     expect(later.find((e) => e.method.startsWith('surf') && e.location.key === 'striaton-city')!.available).toBe(true)
   })
 
+  it('los legendarios fijos salen tras la Liga, salvo Zekrom en el Castillo de N', () => {
+    const before: Progress = { badges: 8, postgame: false }
+    for (const s of [638, 639, 640]) expect(howToGet(data, s, 'W', before, 'spring').available, `#${s}`).toBe(false)
+    expect(howToGet(data, 638, 'W', all, 'spring').available).toBe(true)
+    const zekrom = encountersFor(data, 644, 'W', before, 'spring').find((e) => e.location.key === 'ns-castle')!
+    expect(zekrom.available).toBe(true)
+  })
+
   it('la Supercaña solo después de la Liga', () => {
     const enc = encountersFor(data, 550, 'W', { badges: 8, postgame: false }, 'spring')
     expect(enc.filter((e) => e.method.includes('rod')).every((e) => !e.available)).toBe(true)

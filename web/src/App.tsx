@@ -4,6 +4,8 @@ import { I18nContext, detectLang, makeT, useI18n, type Key, type Lang } from './
 import type { GameLists, SaveSummary, SlotRef } from './types'
 import { SaveView, type Section } from './components/SaveView'
 import { BagPanel, DexPanel, ImportDialog } from './components/Phase2Views'
+import { AssistantPanel } from './components/AssistantPanel'
+import { assistantVersion } from './assistant'
 import { PokemonEditor } from './components/PokemonEditor'
 import { BoxBrowser, ExportDialog, TrainerEditor } from './components/Panels'
 import { Icon, Logo, PokeBall } from './components/visuals'
@@ -322,6 +324,12 @@ export default function App() {
                 pc={ready && <BoxBrowser engine={ready} save={loaded.save} version={boxVersion} onOpen={setEditing} onImport={setImporting} />}
                 bag={ready && <BagPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
                 dex={ready && <DexPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
+                assistant={
+                  ready &&
+                  assistantVersion(loaded.save.gameId) && (
+                    <AssistantPanel engine={ready} save={loaded.save} version={assistantVersion(loaded.save.gameId)!} dexVersion={boxVersion} />
+                  )
+                }
               />
               {engine.status === 'ready' && (
                 <p className="metrics">
