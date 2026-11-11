@@ -98,6 +98,72 @@ public static partial class Engine
         return JsonSerializer.Serialize(result, PokeSaveJson.Default.EditResult);
     }
 
+    // ---------- Fase 2 ----------
+
+    [JSExport]
+    public static string Undo(string language)
+        => _session is not null && _session.Undo() ? Summary(language) : Serialize(new LoadResult(false, "history", null));
+
+    [JSExport]
+    public static string Redo(string language)
+        => _session is not null && _session.Redo() ? Summary(language) : Serialize(new LoadResult(false, "history", null));
+
+    [JSExport]
+    public static string Bag(string language)
+        => _session is null ? "null" : JsonSerializer.Serialize(_session.GetBag(language), PokeSaveJson.Default.BagView);
+
+    [JSExport]
+    public static string SetPouch(string editJson, string language)
+    {
+        var edit = Parse(editJson, PokeSaveJson.Default.PouchEdit);
+        var result = _session is null || edit is null ? new EditResult(false, "input", null, null) : _session.SetPouch(edit, language);
+        return JsonSerializer.Serialize(result, PokeSaveJson.Default.EditResult);
+    }
+
+    [JSExport]
+    public static string Dex(string language)
+        => _session is null ? "null" : JsonSerializer.Serialize(_session.GetDex(language), PokeSaveJson.Default.DexView);
+
+    [JSExport]
+    public static string SetDex(string editJson, string language)
+    {
+        var edit = Parse(editJson, PokeSaveJson.Default.DexEdit);
+        var result = _session is null || edit is null ? new EditResult(false, "input", null, null) : _session.SetDex(edit, language);
+        return JsonSerializer.Serialize(result, PokeSaveJson.Default.EditResult);
+    }
+
+    /// <summary>Datos del archivo .pk* (vacío si no hay Pokémon en ese hueco).</summary>
+    [JSExport]
+    public static byte[] ExportPokemonData(string slotJson, string language)
+    {
+        var at = Parse(slotJson, PokeSaveJson.Default.SlotRef);
+        return at is null ? [] : _session?.ExportPokemon(at, language)?.Data ?? [];
+    }
+
+    [JSExport]
+    public static string ExportPokemonInfo(string slotJson, string language)
+    {
+        var at = Parse(slotJson, PokeSaveJson.Default.SlotRef);
+        var info = at is null ? null : _session?.ExportPokemon(at, language)?.Info;
+        return info is null ? "null" : JsonSerializer.Serialize(info, PokeSaveJson.Default.PokemonExport);
+    }
+
+    [JSExport]
+    public static string ImportPokemonFile(string slotJson, byte[] data, string fileName, string language)
+    {
+        var at = Parse(slotJson, PokeSaveJson.Default.SlotRef);
+        var result = _session is null || at is null ? new EditResult(false, "input", null, null) : _session.ImportPokemonFile(at, data, fileName, language);
+        return JsonSerializer.Serialize(result, PokeSaveJson.Default.EditResult);
+    }
+
+    [JSExport]
+    public static string ImportShowdown(string slotJson, string text, string language)
+    {
+        var at = Parse(slotJson, PokeSaveJson.Default.SlotRef);
+        var result = _session is null || at is null ? new EditResult(false, "input", null, null) : _session.ImportShowdown(at, text, language);
+        return JsonSerializer.Serialize(result, PokeSaveJson.Default.EditResult);
+    }
+
     private static T? Parse<T>(string json, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type) where T : class
     {
         try

@@ -59,6 +59,7 @@ public sealed partial class SaveSession
         if (error is not null)
             return new EditResult(false, error, null, null);
 
+        Checkpoint();
         Write(at, pk);
         var fresh = Read(at)!;
         return new EditResult(true, null, Detail(at, fresh, language), GetSummary(language));
@@ -88,16 +89,19 @@ public sealed partial class SaveSession
         if (edit.Money > (uint)sav.MaxMoney)
             return new EditResult(false, "money", null, null);
 
-        sav.OT = name;
+        Checkpoint();
         try
         {
             sav.Money = edit.Money;
         }
         catch
         {
-            // Partidas sin bloque de dinero legible: se deja como estaba.
+            // Partidas sin bloque de dinero legible: se deshace el punto de control.
+            Save = _undo[^1];
+            _undo.RemoveAt(_undo.Count - 1);
             return new EditResult(false, "money", null, null);
         }
+        sav.OT = name;
         return new EditResult(true, null, null, GetSummary(language));
     }
 

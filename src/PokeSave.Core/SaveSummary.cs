@@ -20,7 +20,8 @@ public sealed record SaveSummary(
     DexInfo? Pokedex,
     bool ChecksumsValid,
     int FileSize,
-    string Extension);
+    string Extension,
+    HistoryInfo History);
 
 public sealed record TrainerInfo(
     string Name,
@@ -68,4 +69,9 @@ public sealed record MoveSlot(int Id, string Name, TypeInfo Type);
 [JsonSerializable(typeof(SlotRef))]
 [JsonSerializable(typeof(PokemonEdit))]
 [JsonSerializable(typeof(TrainerEdit))]
+[JsonSerializable(typeof(BagView))]
+[JsonSerializable(typeof(PouchEdit))]
+[JsonSerializable(typeof(DexView))]
+[JsonSerializable(typeof(DexEdit))]
+[JsonSerializable(typeof(PokemonExport))]
 public sealed partial class PokeSaveJson : JsonSerializerContext;

@@ -10,7 +10,8 @@ public sealed partial class SaveSession
 {
     private readonly byte[] _original;
 
-    public SaveFile Save { get; }
+    /// <summary>Partida actual. Cambia de objeto al deshacer o rehacer.</summary>
+    public SaveFile Save { get; private set; }
 
     private SaveSession(SaveFile save, byte[] original)
     {
@@ -106,7 +107,8 @@ public sealed partial class SaveSession
             Pokedex: dex,
             ChecksumsValid: sav.ChecksumsValid,
             FileSize: _original.Length,
-            Extension: sav.Extension);
+            Extension: sav.Extension,
+            History: History);
     }
 
     private static PokemonInfo Describe(PKM pk, int slot, GameStrings strings, StorageSlotType origin)

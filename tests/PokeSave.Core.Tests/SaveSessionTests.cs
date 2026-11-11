@@ -299,6 +299,38 @@ public class LocalSaveTests
         Assert.Equal(session.GetSummary().Party.Count, summary.Party.Count);
     }
 
+    [Theory]
+    [MemberData(nameof(LocalSaves))]
+    public void Partida_real_mochila_y_pokedex(string path)
+    {
+        if (path.Length == 0)
+            return;
+        var name = Path.GetFileName(path);
+        Assert.True(SaveSession.TryOpen(File.ReadAllBytes(path), name, out var s, out _));
+
+        // Mochila: se lee y un bolsillo reescrito igual queda igual.
+        var bag = s!.GetBag();
+        Assert.NotEmpty(bag.Pouches.SelectMany(p => p.Items));
+        var items = bag.Pouches.First(p => p.Items.Count > 0);
+        Assert.True(s.SetPouch(new PouchEdit(items.Type, items.Items.Select(i => new BagItemEdit(i.Id, i.Count)).ToList())).Ok);
+
+        // Pokédex: marcar una especie que falte y comprobar tras reabrir.
+        var dex = s.GetDex();
+        if (!dex.Editable)
+            return;
+        var missing = dex.Entries.FirstOrDefault(e => !e.Caught);
+        if (missing is null)
+            return;
+        int caughtBefore = s.GetSummary().Pokedex!.Caught;
+        Assert.True(s.SetDex(new DexEdit([missing.Species], true, true)).Ok);
+
+        Assert.True(SaveSession.TryOpen(s.Export(), name, out var r, out _));
+        Assert.True(r!.Save.ChecksumsValid);
+        Assert.Equal(caughtBefore + 1, r.GetSummary().Pokedex!.Caught);
+        var reBag = r.GetBag().Pouches.First(p => p.Type == items.Type);
+        Assert.Equal(items.Items.Select(i => (i.Id, i.Count)).Order(), reBag.Items.Select(i => (i.Id, i.Count)).Order());
+    }
+
     private sealed class SummaryComparer : IEqualityComparer<SaveSummary>
     {
         public bool Equals(SaveSummary? a, SaveSummary? b)
