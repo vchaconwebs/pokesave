@@ -7,6 +7,7 @@
     "engine": "node scripts/build-engine.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/build-pages.mjs",
+    "build:3ds": "vite build --base ./ --outDir dist-3ds",
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "preview": "vite preview",

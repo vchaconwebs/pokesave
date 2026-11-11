@@ -272,6 +272,18 @@ cd web && npm run typecheck && npm run lint && npm test
   privacidad. GitHub Pages no está pensado para webs comerciales: con anuncios conviene
   Cloudflare Pages o Netlify (además sirven los `.br` precomprimidos).
 
+## App de 3DS (PokeSave Link)
+
+- `3ds/PokeSaveLink/` (C, libctru): detecta X/Y, ROZA, SL y USUL, copia la partida a la SD,
+  sirve la web desde `sdmc:/3ds/PokeSave/web/` por wifi y expone `/api/info` y `/api/save`
+  (POST con PIN). Ver su README. **Compila, pero falta probarla en una consola real.**
+- La web detecta que la sirve la consola (`link3ds.ts`: solo por http, `GET api/info`) y cambia
+  "Descargar partida" por "Guardar en la 3DS". `npm run build:3ds` compila con base relativa
+  (`dist-3ds/`). El motor se importa con `new URL(…, document.baseURI)`: con base relativa,
+  `import()` resolvía la ruta dentro de `/assets/`.
+- `node web/scripts/mock-3ds.mjs <partida>` simula la consola en `http://localhost:8000` (PIN
+  1234) y escribe lo guardado en `<partida>.guardada`.
+
 ## Mediciones de la Fase 0
 
 Motor publicado con `PublishTrimmed`, `TrimMode=full`, `InvariantGlobalization`, Webcil y

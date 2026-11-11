@@ -87,7 +87,9 @@ export function loadEngine(onProgress?: (p: Progress) => void): Promise<Engine> 
 
 async function start(onProgress?: (p: Progress) => void): Promise<Engine> {
   const t0 = performance.now()
-  const url = `${import.meta.env.BASE_URL}_framework/dotnet.js`
+  // Contra la página, no contra el módulo: con base relativa ("./", la web servida desde la
+  // 3DS) import() la resolvería dentro de /assets/.
+  const url = new URL(`${import.meta.env.BASE_URL}_framework/dotnet.js`, document.baseURI).href
   const mod = await import(/* @vite-ignore */ url)
   // withModuleConfig existe en el runtime aunque no aparezca en dotnet.d.ts de .NET 10.
   const runtime = await mod.dotnet

@@ -28,3 +28,12 @@ Thumbs.db
 
 # Caché de PokéAPI de los scripts de datos
 tools/.cache/
+
+# Web para copiar a la SD de la 3DS (npm run build:3ds)
+web/dist-3ds/
+
+# Compilación de la app de 3DS
+3ds/PokeSaveLink/build/
+3ds/PokeSaveLink/*.3dsx
+3ds/PokeSaveLink/*.smdh
+3ds/PokeSaveLink/*.elf

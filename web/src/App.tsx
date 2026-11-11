@@ -9,6 +9,8 @@ import { ItemFinderPanel } from './components/ItemFinderPanel'
 import { MapPanel } from './components/MapPanel'
 import { SharedTeamView, TeamShareDialog } from './components/TeamShare'
 import { AdSlot } from './components/AdSlot'
+import { Link3dsBanner, SaveTo3dsDialog } from './components/Link3DS'
+import { useLink3ds } from './link3ds'
 import { decodeTeam, teamFromHash, type SharedTeam } from './share'
 import { regionMapsFor } from './regionMap'
 import { assistantGame } from './assistant'
@@ -62,6 +64,9 @@ export default function App() {
   const [boxVersion, setBoxVersion] = useState(0)
   const [toast, setToast] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
+  // Web servida desde la 3DS (PokeSave Link): cargar y guardar la partida en la consola.
+  const link3ds = useLink3ds()
+  const [saving3ds, setSaving3ds] = useState(false)
   // Equipo compartido por enlace (#team=…): se enseña sin necesidad de partida.
   const [shared, setShared] = useState<SharedTeam | null>(null)
   useEffect(() => {
@@ -325,6 +330,7 @@ export default function App() {
         />
 
         <main className="main">
+          {link3ds && <Link3dsBanner info={link3ds} onOpen={(f) => void openFile(f)} />}
           {loaded ? (
             <>
               {error && <ErrorBox error={error} />}
@@ -400,6 +406,16 @@ export default function App() {
             onSaved={(s) => onEdited(s)}
           />
         )}
+        {ready && loaded && saving3ds && (
+          <SaveTo3dsDialog
+            getBytes={() => ready.exportSave()}
+            onClose={() => setSaving3ds(false)}
+            onDone={() => {
+              setExportedAt(position)
+              setToast(t('l3Saved'))
+            }}
+          />
+        )}
         {ready && loaded && sharing && <TeamShareDialog engine={ready} save={loaded.save} onClose={() => setSharing(false)} />}
         {ready && loaded && editingTrainer && (
           <TrainerEditor engine={ready} save={loaded.save} onClose={() => setEditingTrainer(false)} onSaved={(s) => onEdited(s)} />
@@ -432,8 +448,8 @@ export default function App() {
               <>
                 <span className="savebar__dot" aria-hidden="true" />
                 <span className="savebar__text">{t(changes === 1 ? 'changes' : 'changesMany', { n: changes })}</span>
-                <button type="button" className="btn btn--red btn--sm" onClick={() => setExporting(true)}>
-                  <Icon name="download" /> {t('downloadSave')}
+                <button type="button" className="btn btn--red btn--sm" onClick={() => (link3ds ? setSaving3ds(true) : setExporting(true))}>
+                  <Icon name="download" /> {link3ds ? t('l3Save') : t('downloadSave')}
                 </button>
               </>
             )}

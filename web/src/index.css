@@ -3292,3 +3292,7 @@ p {
 /* Anuncios (desactivados si no hay ID): en su propio hueco, nunca encima de la interfaz. */
 .ad-slot { margin: 24px auto 0; max-width: 970px; min-height: 100px; padding: 8px; border-radius: 14px; box-shadow: inset 0 0 0 2px var(--line); }
 .ad-slot__label { display: block; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+
+/* Fase 6 · Conectado a la 3DS */
+.link3ds { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+.link3ds p { margin: 0; }
