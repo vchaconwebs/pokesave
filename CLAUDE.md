@@ -8,6 +8,7 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
 
 ## Estado
 
+- Publicado en https://vchaconwebs.github.io/pokesave/ (rama `main`).
 - **Fase 0 (prueba técnica): hecha.** Rama `fase-0`. Carga de partida, detección de juego y
   generación, entrenador, equipo, Pokédex y PC en solo lectura, copia del original.
 - Siguiente: Fase 1 (MVP del editor). Antes de empezar, proponer un plan y esperar confirmación.
@@ -66,6 +67,13 @@ cd web && npm run typecheck && npm run lint
   ~77 KB gzip y se pinta antes de que llegue el motor).
 - **PokeSave.Core separado de PokeSave.Wasm.** La lógica se prueba con xUnit en .NET normal, sin
   navegador. El proyecto WASM solo serializa y pasa bytes.
+- **Diseño "de videojuego":** portada con una Pokédex dibujada en CSS (la lente y los LED
+  indican el estado del motor), Tarjeta de Entrenador, pantallas LCD para las estadísticas,
+  cuadros de diálogo como en los juegos y tarjetas de equipo coloreadas por tipo. Fuentes
+  Fredoka y Press Start 2P empaquetadas con `@fontsource` (no se piden a Google Fonts).
+- **Tipos:** `PokemonInfo.Types` y `MoveSlot.Type` usan la numeración de PKHeX (0 Normal …
+  17 Hada). En Gen 1/2 los datos de especie vienen con la numeración de Game Boy y se
+  normalizan en `SaveSession.NormalizeType`; los movimientos ya vienen normalizados.
 - **JSON con generador de código** (`PokeSaveJson`): compatible con trimming, sin reflexión.
 - **Sprites desde PokéAPI, no desde el repositorio.** `theme.ts → spriteUrl` enlaza a
   `raw.githubusercontent.com/PokeAPI/sprites` (animados de Blanco/Negro hasta #649, estáticos

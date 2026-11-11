@@ -4,6 +4,8 @@
 tu equipo, tu Pokédex y tus cajas, y (pronto) edítalo desde el móvil o el ordenador. Tu
 partida nunca se sube a ningún servidor.
 
+**Pruébala:** https://vchaconwebs.github.io/pokesave/
+
 > Estado: **Fase 0 · prueba técnica**. Lectura de partidas de todas las generaciones
 > soportadas por PKHeX.Core. La edición llega en la Fase 1.
 
