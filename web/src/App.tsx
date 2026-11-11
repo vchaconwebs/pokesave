@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { downloadBytes, loadEngine, type Engine, type Progress } from './engine'
 import { I18nContext, detectLang, makeT, useI18n, type Key, type Lang } from './i18n'
 import type { GameLists, SaveSummary, SlotRef } from './types'
-import { SaveView } from './components/SaveView'
+import { SaveView, type Section } from './components/SaveView'
+import { BagPanel, DexPanel, ImportDialog } from './components/Phase2Views'
 import { PokemonEditor } from './components/PokemonEditor'
 import { BoxBrowser, ExportDialog, TrainerEditor } from './components/Panels'
 import { Icon, Logo, PokeBall } from './components/visuals'
@@ -42,13 +43,18 @@ export default function App() {
   const [error, setError] = useState<{ key: Key; hint?: Key } | null>(null)
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
-  // Fase 1: edición
-  const [changes, setChanges] = useState(0)
+  // Fase 1/2: edición. Los cambios se cuentan con el historial del motor: hay cambios sin
+  // descargar si la posición en el historial no es la del último archivo descargado.
+  const [exportedAt, setExportedAt] = useState(0)
+  const [section, setSection] = useState<Section>('team')
+  const [importing, setImporting] = useState<SlotRef | null>(null)
   const [editing, setEditing] = useState<SlotRef | null>(null)
   const [editingTrainer, setEditingTrainer] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [boxVersion, setBoxVersion] = useState(0)
   const [toast, setToast] = useState<string | null>(null)
+  const position = loaded?.save.history.position ?? 0
+  const changes = Math.abs(position - exportedAt)
   const changesRef = useRef(0)
   useEffect(() => {
     changesRef.current = changes
@@ -109,7 +115,8 @@ export default function App() {
         const parseMs = Math.round(performance.now() - t0)
         if (result.ok && result.save) {
           setLoaded({ save: result.save, fileName: file.name, parseMs })
-          setChanges(0)
+          setExportedAt(0)
+          setSection('team')
           setBoxVersion((v) => v + 1)
         } else {
           setLoaded(null)
@@ -159,12 +166,41 @@ export default function App() {
   const loadedId = loaded ? loaded.fileName + loaded.parseMs : null
   const lists = useMemo<GameLists | null>(() => (ready && loadedId ? ready.lists(lang) : null), [ready, loadedId, lang])
 
-  const onEdited = (save: SaveSummary) => {
+  const onEdited = (save: SaveSummary, message: string = t('saved')) => {
     setLoaded((l) => (l ? { ...l, save } : l))
-    setChanges((c) => c + 1)
     setBoxVersion((v) => v + 1)
-    setToast(t('saved'))
+    setToast(message)
   }
+
+  const step = useCallback(
+    (dir: 'undo' | 'redo') => {
+      if (!ready || !loaded) return
+      const r = dir === 'undo' ? ready.undo(lang) : ready.redo(lang)
+      if (r.ok && r.save) onEdited(r.save, t(dir))
+    },
+    // onEdited solo usa setters y t.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ready, loaded, lang, t],
+  )
+
+  // Ctrl+Z / Ctrl+Y (o Cmd en Mac), salvo escribiendo en un campo o con una ventana abierta.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || document.querySelector('.modal')) return
+      const el = e.target as HTMLElement
+      if (el.closest('input, textarea, select, [contenteditable]')) return
+      const k = e.key.toLowerCase()
+      if (k === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        step('undo')
+      } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
+        e.preventDefault()
+        step('redo')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [step])
 
   const changeLang = (next: Lang) => {
     setLang(next)
@@ -280,7 +316,12 @@ export default function App() {
                 onDownloadSave={() => setExporting(true)}
                 onEditTrainer={() => setEditingTrainer(true)}
                 onEditPokemon={setEditing}
-                pc={ready && <BoxBrowser engine={ready} save={loaded.save} version={boxVersion} onOpen={setEditing} />}
+                onAddPokemon={setImporting}
+                section={section}
+                onSection={setSection}
+                pc={ready && <BoxBrowser engine={ready} save={loaded.save} version={boxVersion} onOpen={setEditing} onImport={setImporting} />}
+                bag={ready && <BagPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
+                dex={ready && <DexPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
               />
               {engine.status === 'ready' && (
                 <p className="metrics">
@@ -307,23 +348,45 @@ export default function App() {
             at={editing}
             lists={lists}
             onClose={() => setEditing(null)}
-            onSaved={onEdited}
+            onSaved={(s) => onEdited(s)}
           />
         )}
         {ready && loaded && editingTrainer && (
-          <TrainerEditor engine={ready} save={loaded.save} onClose={() => setEditingTrainer(false)} onSaved={onEdited} />
+          <TrainerEditor engine={ready} save={loaded.save} onClose={() => setEditingTrainer(false)} onSaved={(s) => onEdited(s)} />
         )}
         {ready && loaded && exporting && (
-          <ExportDialog engine={ready} fileName={loaded.fileName} onClose={() => setExporting(false)} onDone={() => setChanges(0)} />
+          <ExportDialog engine={ready} fileName={loaded.fileName} onClose={() => setExporting(false)} onDone={() => setExportedAt(position)} />
+        )}
+        {ready && loaded && importing && (
+          <ImportDialog
+            engine={ready}
+            at={importing}
+            onClose={() => setImporting(null)}
+            onImported={(s, at) => {
+              onEdited(s, t('imported'))
+              setImporting(null)
+              setEditing(at)
+            }}
+          />
         )}
 
-        {loaded && changes > 0 && !exporting && (
+        {loaded && (changes > 0 || loaded.save.history.canUndo || loaded.save.history.canRedo) && !exporting && (
           <div className="savebar" role="status">
-            <span className="savebar__dot" aria-hidden="true" />
-            <span className="savebar__text">{t(changes === 1 ? 'changes' : 'changesMany', { n: changes })}</span>
-            <button type="button" className="btn btn--red btn--sm" onClick={() => setExporting(true)}>
-              <Icon name="download" /> {t('downloadSave')}
+            <button type="button" className="savebar__step" onClick={() => step('undo')} disabled={!loaded.save.history.canUndo} aria-label={t('undo')} title={`${t('undo')} (Ctrl+Z)`}>
+              ↶
             </button>
+            <button type="button" className="savebar__step" onClick={() => step('redo')} disabled={!loaded.save.history.canRedo} aria-label={t('redo')} title={`${t('redo')} (Ctrl+Y)`}>
+              ↷
+            </button>
+            {changes > 0 && (
+              <>
+                <span className="savebar__dot" aria-hidden="true" />
+                <span className="savebar__text">{t(changes === 1 ? 'changes' : 'changesMany', { n: changes })}</span>
+                <button type="button" className="btn btn--red btn--sm" onClick={() => setExporting(true)}>
+                  <Icon name="download" /> {t('downloadSave')}
+                </button>
+              </>
+            )}
           </div>
         )}
 

@@ -21,6 +21,13 @@ export interface SaveSummary {
   checksumsValid: boolean
   fileSize: number
   extension: string
+  history: HistoryInfo
+}
+
+export interface HistoryInfo {
+  position: number
+  canUndo: boolean
+  canRedo: boolean
 }
 
 export interface TrainerInfo {
@@ -159,4 +166,52 @@ export interface EditResult {
   error: string | null
   pokemon: PokemonDetail | null
   save: SaveSummary | null
+}
+
+// ---------- Fase 2 (espejo de Phase2Models.cs) ----------
+
+export interface BagItem {
+  id: number
+  name: string
+  count: number
+}
+
+export interface PouchView {
+  type: string
+  slots: number
+  maxCount: number
+  items: BagItem[]
+  allowed: Option[]
+}
+
+export interface BagView {
+  pouches: PouchView[]
+}
+
+export interface PouchEdit {
+  type: string
+  items: { id: number; count: number }[]
+}
+
+export interface DexEntry {
+  species: number
+  name: string
+  seen: boolean
+  caught: boolean
+}
+
+export interface DexView {
+  editable: boolean
+  entries: DexEntry[]
+}
+
+export interface DexEdit {
+  species: number[]
+  seen: boolean
+  caught: boolean
+}
+
+export interface PokemonExport {
+  fileName: string
+  showdown: string
 }

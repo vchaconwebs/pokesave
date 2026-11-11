@@ -1,8 +1,10 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { PokemonInfo, SaveSummary, SlotRef } from '../types'
-import { useI18n } from '../i18n'
+import { useI18n, type Key } from '../i18n'
 import { typeColor, typeInk } from '../theme'
 import { Icon, MonSprite, PokeBall, TypeBadge } from './visuals'
+
+export type Section = 'team' | 'bag' | 'dex'
 
 export function SaveView({
   save,
@@ -12,7 +14,12 @@ export function SaveView({
   onDownloadSave,
   onEditTrainer,
   onEditPokemon,
+  onAddPokemon,
   pc,
+  section,
+  onSection,
+  bag,
+  dex,
 }: {
   save: SaveSummary
   fileName: string
@@ -21,7 +28,12 @@ export function SaveView({
   onDownloadSave: () => void
   onEditTrainer: () => void
   onEditPokemon: (at: SlotRef) => void
+  onAddPokemon: (at: SlotRef) => void
   pc?: ReactNode
+  section: Section
+  onSection: (s: Section) => void
+  bag?: ReactNode
+  dex?: ReactNode
 }) {
   const { t, lang } = useI18n()
   const nf = new Intl.NumberFormat(lang)
@@ -107,6 +119,31 @@ export function SaveView({
         </Lcd>
       </div>
 
+      <span id="sections" aria-hidden="true" />
+      <nav className="nav" aria-label="Secciones">
+        {(
+          [
+            ['team', 'navTeam'],
+            ['bag', 'navBag'],
+            ['dex', 'navDex'],
+          ] as [Section, Key][]
+        ).map(([id, key]) => (
+          <button key={id} type="button" className="nav__btn" aria-pressed={section === id} onClick={() => {
+            onSection(id)
+            // Al cambiar de sección, volver a su principio si ya se había bajado más.
+            const anchor = document.getElementById('sections')
+            if (anchor && anchor.getBoundingClientRect().top < 0)
+              window.scrollTo({ top: anchor.getBoundingClientRect().top + window.scrollY - 76 })
+          }}>
+            {t(key)}
+          </button>
+        ))}
+      </nav>
+
+      {section === 'bag' && bag}
+      {section === 'dex' && dex}
+
+      {section === 'team' && (
       <section aria-labelledby="team-title">
         <div className="section-head">
           <PokeBall size={28} />
@@ -120,11 +157,20 @@ export function SaveView({
             {save.party.map((pk, i) => (
               <MonCard key={pk.slot} pk={pk} index={i} onEdit={() => onEditPokemon({ kind: 'party', box: 0, slot: pk.slot })} />
             ))}
+            {save.party.length < 6 && (
+              <li className="mon mon--add">
+                <button type="button" className="mon__addbtn" onClick={() => onAddPokemon({ kind: 'party', box: 0, slot: save.party.length })}>
+                  <PokeBall size={56} />
+                  <span className="px">＋ {t('addPokemon')}</span>
+                </button>
+              </li>
+            )}
           </ul>
         )}
       </section>
+      )}
 
-      {pc}
+      {section === 'team' && pc}
 
       <div className="actions">
         <button type="button" className="btn btn--red" onClick={onDownloadSave}>

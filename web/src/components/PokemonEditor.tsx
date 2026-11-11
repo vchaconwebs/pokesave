@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import type { Engine } from '../engine'
+import { downloadBytes, type Engine } from '../engine'
 import type { GameLists, PokemonDetail, PokemonEdit, SaveSummary, SlotRef } from '../types'
 import { errorKey, useI18n, type Key } from '../i18n'
 import { typeColor, typeInk } from '../theme'
 import { Combobox, Modal, NumberField } from './controls'
 import { Icon, MonSprite, TypeBadge } from './visuals'
 
-type Tab = 'general' | 'moves' | 'stats' | 'legality'
+type Tab = 'general' | 'moves' | 'stats' | 'legality' | 'export'
 
 const STAT_KEYS: Key[] = ['statHP', 'statAtk', 'statDef', 'statSpA', 'statSpD', 'statSpe']
 
@@ -130,6 +130,7 @@ export function PokemonEditor({
             ['moves', 'tabMoves'],
             ['stats', 'tabStats'],
             ['legality', 'tabLegality'],
+            ['export', 'tabExport'],
           ] as [Tab, Key][]
         ).map(([id, key]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className="tab" onClick={() => setTab(id)}>
@@ -228,6 +229,8 @@ export function PokemonEditor({
 
         {tab === 'stats' && <StatsTab draft={draft} view={view} onChange={(ivs, evs) => setDraft({ ...draft, ivs, evs })} />}
 
+        {tab === 'export' && <ExportTab engine={engine} at={at} />}
+
         {tab === 'legality' && (
           <div className="legality">
             {view.legality.length === 0 ? (
@@ -249,6 +252,47 @@ export function PokemonEditor({
         )}
       </div>
     </Modal>
+  )
+}
+
+function ExportTab({ engine, at }: { engine: Engine; at: SlotRef }) {
+  const { t, lang } = useI18n()
+  const [copied, setCopied] = useState(false)
+  // Se exporta tal y como está guardado en la partida (no el borrador sin guardar).
+  const [exp] = useState(() => engine.exportPokemon(at, lang))
+  if (!exp) return null
+  const ext = exp.info.fileName.split('.').pop() ?? 'pk'
+
+  return (
+    <div className="export-tab">
+      <div className="field">
+        <button type="button" className="btn" onClick={() => downloadBytes(exp.data, exp.info.fileName)}>
+          <Icon name="download" /> {t('exportFile', { ext: `.${ext}` })}
+        </button>
+        <p className="muted">{t('exportFileHint')}</p>
+      </div>
+      <div className="field">
+        <label className="field__label" htmlFor="showdown-out">
+          {t('showdownText')}
+        </label>
+        <textarea id="showdown-out" className="input import__text" rows={9} readOnly value={exp.info.showdown} />
+        <button
+          type="button"
+          className="btn btn--sm"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(exp.info.showdown)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 1500)
+            } catch {
+              ;(document.getElementById('showdown-out') as HTMLTextAreaElement | null)?.select()
+            }
+          }}
+        >
+          {copied ? `✓ ${t('copied')}` : t('copy')}
+        </button>
+      </div>
+    </div>
   )
 }
 

@@ -85,12 +85,14 @@ export function BoxBrowser({
   save,
   version,
   onOpen,
+  onImport,
 }: {
   engine: Engine
   save: SaveSummary
   /** Cambia tras cada edición para volver a leer la caja. */
   version: number
   onOpen: (at: SlotRef) => void
+  onImport: (at: SlotRef) => void
 }) {
   const { t, lang } = useI18n()
   const [index, setIndex] = useState(0)
@@ -136,7 +138,14 @@ export function BoxBrowser({
         <ul className="pc__grid" style={{ ['--cols' as string]: 6 }}>
           {Array.from({ length: box?.slotCount ?? 30 }, (_, i) => {
             const s = bySlot.get(i)
-            if (!s) return <li key={i} className="pc__slot pc__slot--empty" aria-hidden="true" />
+            if (!s)
+              return (
+                <li key={i} className="pc__slot pc__slot--empty">
+                  <button type="button" className="pc__add" onClick={() => onImport({ kind: 'box', box: index, slot: i })} aria-label={t('addPokemon')}>
+                    ＋
+                  </button>
+                </li>
+              )
             const url = s.isEgg ? null : spriteStillUrl(s.species, s.isShiny)
             return (
               <li key={i} className="pc__slot">

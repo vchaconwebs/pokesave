@@ -2516,6 +2516,411 @@ p {
   }
 }
 
+/* =========================================================
+   Fase 2 · mochila, Pokédex, importar/exportar, deshacer
+   ========================================================= */
+
+/* Navegación entre secciones */
+.nav {
+  position: sticky;
+  top: 64px;
+  z-index: 15;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--line), var(--shadow);
+}
+.nav__btn {
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+.nav__btn[aria-pressed='true'] {
+  background: linear-gradient(var(--dex-red-hi), var(--dex-red));
+  color: #fff;
+  box-shadow: inset 0 -3px 0 var(--dex-red-lo);
+}
+
+/* Añadir Pokémon */
+.mon--add {
+  display: grid;
+  min-height: 200px;
+  background: none;
+  box-shadow: inset 0 0 0 3px var(--line-strong);
+  border: 0;
+}
+.mon__addbtn {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 14px;
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius);
+  background: repeating-linear-gradient(45deg, var(--surface) 0 12px, transparent 12px 24px);
+  color: var(--muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+.mon__addbtn:hover {
+  color: var(--text);
+}
+.mon__addbtn:hover .pokeball {
+  animation: catch 1.1s ease-in-out infinite;
+}
+.pc__add {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: rgb(255 255 255 / 0);
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.pc__add:hover,
+.pc__add:focus-visible {
+  color: #fff;
+  background: rgb(255 255 255 / 0.15);
+}
+@media (hover: none) {
+  .pc__add {
+    color: rgb(255 255 255 / 0.35);
+  }
+}
+
+/* Barra de deshacer / rehacer */
+.savebar {
+  padding-left: 8px;
+}
+.savebar__step {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.12);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.savebar__step:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.savebar__step:not(:disabled):hover {
+  background: rgb(255 255 255 / 0.22);
+}
+
+/* Mochila */
+.bag {
+  display: grid;
+  gap: 14px;
+}
+.pouches {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+.pouch-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--p) 70%, transparent), inset 0 0 0 2px var(--line);
+}
+.pouch-tab[aria-selected='true'] {
+  background: var(--p);
+  color: #fff;
+  box-shadow: inset 0 -4px 0 rgb(0 0 0 / 0.25);
+}
+.pouch-tab__n {
+  min-width: 24px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.18);
+  font-size: 12px;
+  text-align: center;
+}
+.pouch {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(color-mix(in srgb, var(--p) 18%, transparent), transparent 120px),
+    var(--surface);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--p) 45%, transparent), var(--shadow);
+}
+.pouch__head {
+  font-size: 9px;
+  color: var(--muted);
+}
+.pouch__empty {
+  padding: 24px 8px;
+  text-align: center;
+  color: var(--muted);
+}
+.bag__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.bag__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 6px 8px 6px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.bag__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bag__count {
+  font-size: 10px;
+  color: var(--muted);
+  padding-right: 6px;
+}
+.bag__qty {
+  width: 170px;
+  flex: none;
+}
+.bag__qty .field__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.bag__qty .stepper button {
+  width: 40px;
+}
+.bag__qty .stepper input {
+  min-height: 40px;
+  padding: 6px;
+}
+.bag__remove {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+.bag__remove:hover {
+  background: color-mix(in srgb, var(--low) 20%, transparent);
+  color: var(--low);
+}
+.pouch__add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+.pouch__add .btn {
+  min-height: 46px;
+}
+.pouch__foot {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 2px dashed var(--line-strong);
+}
+.bag__results {
+  display: grid;
+  gap: 14px;
+}
+.bag__group-title {
+  margin-bottom: 6px;
+  font-size: 9px;
+  color: var(--p);
+}
+@media (max-width: 480px) {
+  .bag__row {
+    flex-wrap: wrap;
+  }
+  .bag__name {
+    flex-basis: calc(100% - 50px);
+  }
+  .bag__qty {
+    flex: 1;
+    width: auto;
+  }
+}
+
+/* Pokédex */
+.dex-panel {
+  display: grid;
+  gap: 14px;
+}
+.dex-panel__top {
+  display: grid;
+  gap: 12px;
+}
+.dex-panel__lcd {
+  padding: 14px 16px;
+}
+.dex-panel__bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dex-panel__filters {
+  display: grid;
+  gap: 10px;
+}
+.dex-panel__help {
+  font-size: 13px;
+}
+.dex-panel .chips .chip {
+  border: 0;
+  color: var(--text);
+}
+.dex-panel .chips .chip.is-on {
+  color: #fff;
+}
+.dex-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.dex-cell {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 6px 10px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--line);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.dex-cell:not(:disabled):hover {
+  transform: translateY(-2px);
+}
+.dex-cell:disabled {
+  cursor: default;
+}
+.dex-cell img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.dex-cell__n {
+  justify-self: start;
+  font-size: 7px;
+  color: var(--muted);
+}
+.dex-cell__name {
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dex-cell__ball {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+/* No visto: silueta negra, como en los juegos. */
+.dex-cell--none img {
+  filter: brightness(0);
+  opacity: 0.35;
+}
+.dex-cell--none .dex-cell__name {
+  color: var(--muted);
+}
+.dex-cell--seen img {
+  filter: grayscale(0.85) opacity(0.75);
+}
+.dex-cell--caught {
+  background: linear-gradient(color-mix(in srgb, var(--lcd) 30%, transparent), transparent 60%), var(--surface);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--good) 55%, transparent);
+}
+
+/* Importar / exportar */
+.import {
+  display: grid;
+  gap: 18px;
+}
+.import__block {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.import__block h3 {
+  font-size: 10px;
+}
+.import__block p {
+  font-size: 14px;
+}
+.import__text {
+  width: 100%;
+  min-height: 160px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 14px;
+  font-weight: 500;
+  resize: vertical;
+}
+.import__block .btn {
+  justify-self: stretch;
+}
+.export-tab {
+  display: grid;
+  gap: 18px;
+}
+.export-tab .field {
+  justify-items: start;
+}
+.export-tab .muted {
+  font-size: 14px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

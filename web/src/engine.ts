@@ -1,7 +1,21 @@
 // Carga perezosa del motor .NET WebAssembly (PKHeX.Core). La interfaz se pinta al
 // momento y el motor se descarga en segundo plano. Nada de esto hace peticiones con la
 // partida: los bytes solo viajan entre JS y WASM dentro de la pestaña.
-import type { BoxView, EditResult, GameLists, LoadResult, PokemonDetail, PokemonEdit, SlotRef, TrainerEdit } from './types'
+import type {
+  BagView,
+  BoxView,
+  DexEdit,
+  DexView,
+  EditResult,
+  GameLists,
+  LoadResult,
+  PokemonDetail,
+  PokemonEdit,
+  PokemonExport,
+  PouchEdit,
+  SlotRef,
+  TrainerEdit,
+} from './types'
 
 interface EngineExports {
   Load(data: Uint8Array, fileName: string, language: string): string
@@ -15,6 +29,16 @@ interface EngineExports {
   SetPokemon(slotJson: string, editJson: string, language: string): string
   SetTrainer(editJson: string, language: string): string
   PreviewPokemon(slotJson: string, editJson: string, language: string): string
+  Undo(language: string): string
+  Redo(language: string): string
+  Bag(language: string): string
+  SetPouch(editJson: string, language: string): string
+  Dex(language: string): string
+  SetDex(editJson: string, language: string): string
+  ExportPokemonData(slotJson: string, language: string): Uint8Array
+  ExportPokemonInfo(slotJson: string, language: string): string
+  ImportPokemonFile(slotJson: string, data: Uint8Array, fileName: string, language: string): string
+  ImportShowdown(slotJson: string, text: string, language: string): string
 }
 
 export interface Engine {
@@ -30,6 +54,15 @@ export interface Engine {
   setTrainer(edit: TrainerEdit, language: string): EditResult
   /** Cómo quedaría el Pokémon con estos cambios, sin tocar la partida. */
   previewPokemon(at: SlotRef, edit: PokemonEdit, language: string): EditResult
+  undo(language: string): LoadResult
+  redo(language: string): LoadResult
+  bag(language: string): BagView | null
+  setPouch(edit: PouchEdit, language: string): EditResult
+  dex(language: string): DexView | null
+  setDex(edit: DexEdit, language: string): EditResult
+  exportPokemon(at: SlotRef, language: string): { data: Uint8Array; info: PokemonExport } | null
+  importPokemonFile(at: SlotRef, data: Uint8Array, fileName: string, language: string): EditResult
+  importShowdown(at: SlotRef, text: string, language: string): EditResult
   pkhexVersion: string
   loadMs: number
 }
@@ -72,6 +105,20 @@ async function start(onProgress?: (p: Progress) => void): Promise<Engine> {
       JSON.parse(exports.SetPokemon(JSON.stringify(at), JSON.stringify(edit), language)) as EditResult,
     previewPokemon: (at, edit, language) =>
       JSON.parse(exports.PreviewPokemon(JSON.stringify(at), JSON.stringify(edit), language)) as EditResult,
+    undo: (language) => parse(exports.Undo(language)),
+    redo: (language) => parse(exports.Redo(language)),
+    bag: (language) => JSON.parse(exports.Bag(language)) as BagView | null,
+    setPouch: (edit, language) => JSON.parse(exports.SetPouch(JSON.stringify(edit), language)) as EditResult,
+    dex: (language) => JSON.parse(exports.Dex(language)) as DexView | null,
+    setDex: (edit, language) => JSON.parse(exports.SetDex(JSON.stringify(edit), language)) as EditResult,
+    exportPokemon: (at, language) => {
+      const info = JSON.parse(exports.ExportPokemonInfo(JSON.stringify(at), language)) as PokemonExport | null
+      return info ? { info, data: exports.ExportPokemonData(JSON.stringify(at), language) } : null
+    },
+    importPokemonFile: (at, data, fileName, language) =>
+      JSON.parse(exports.ImportPokemonFile(JSON.stringify(at), data, fileName, language)) as EditResult,
+    importShowdown: (at, text, language) =>
+      JSON.parse(exports.ImportShowdown(JSON.stringify(at), text, language)) as EditResult,
     setTrainer: (edit, language) => JSON.parse(exports.SetTrainer(JSON.stringify(edit), language)) as EditResult,
     pkhexVersion: exports.PkhexVersion(),
     loadMs: Math.round(performance.now() - t0),
