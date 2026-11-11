@@ -234,3 +234,31 @@ public class RealFormatTests
         Assert.Equal(20, pika.Info.Level);
     }
 }
+
+/// <summary>
+/// Guarda las partidas fabricadas en la carpeta de POKESAVE_DUMP para probarlas a mano en la
+/// web o en un emulador. Sin la variable no hace nada.
+/// </summary>
+public class DumpSyntheticSaves
+{
+    [Fact]
+    public void Volcar()
+    {
+        var dir = Environment.GetEnvironmentVariable("POKESAVE_DUMP");
+        if (string.IsNullOrEmpty(dir))
+            return;
+        Directory.CreateDirectory(dir);
+        foreach (var game in new[] { GameVersion.RD, GameVersion.C, GameVersion.E, GameVersion.FR, GameVersion.Pt, GameVersion.HG })
+        {
+            var bytes = game switch
+            {
+                GameVersion.E or GameVersion.FR => RealFormatTests.MakeGen3(game),
+                GameVersion.Pt or GameVersion.HG => RealFormatTests.MakeGen4(game),
+                _ => RealFormatTests.MakeGen12(game),
+            };
+            SaveSession.TryOpen(bytes, "x.sav", out var s, out _);
+            s!.SetTrainer(new TrainerEdit("PRUEBA", 3000));
+            File.WriteAllBytes(Path.Combine(dir, $"sintetica-{game}.sav"), s.Export());
+        }
+    }
+}

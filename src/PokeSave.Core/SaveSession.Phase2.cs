@@ -143,10 +143,10 @@ public sealed partial class SaveSession
     }
 
     /// <summary>
-    /// Pokédex regionales. Para los juegos nuevos PKHeX trae el número regional de cada especie.
-    /// Para Blanco/Negro no hace falta: la Pokédex de Teselia va en el mismo orden que la
-    /// Nacional, de Victini (#494, Teselia 000) a Genesect (#649, Teselia 155).
-    /// Del resto de juegos aún no hay datos: solo se muestra la Nacional.
+    /// Pokédex regionales. Salen de <see cref="RegionalDexData"/> (PokéAPI, revisado contra
+    /// Bulbapedia) salvo en Espada/Escudo, donde PKHeX trae el número regional de cada especie.
+    /// Los índices de PKHeX de DBPR, Leyendas, SV y Z-A no cuadran (faltan especies o formas).
+    /// La clave es la que traduce la UI (kanto, johto, unova…).
     /// </summary>
     private List<DexRegion> GetRegions()
     {
@@ -158,23 +158,72 @@ public sealed partial class SaveSession
             for (ushort s = 1; s <= sav.MaxSpeciesID; s++)
             {
                 int n = number(s);
-                if (n > 0 || (key == "unova" && s == (ushort)Species.Victini))
+                if (n > 0)
                     list.Add(new RegionEntry(s, n));
             }
             if (list.Count > 0)
                 regions.Add(new DexRegion(key, list.OrderBy(e => e.Number).ToList()));
         }
+        void AddData(string key, string? data = null)
+        {
+            var dex = RegionalDexData.Dexes[data ?? key];
+            var list = new List<RegionEntry>(dex.Species.Length);
+            for (int i = 0; i < dex.Species.Length; i++)
+            {
+                if (dex.Species[i] <= sav.MaxSpeciesID)
+                    list.Add(new RegionEntry(dex.Species[i], dex.First + i));
+            }
+            regions.Add(new DexRegion(key, list));
+        }
 
         switch (sav)
         {
-            case SAV5BW:
-                Add("unova", s => s is >= 494 and <= 649 ? s - 494 : 0);
-                break;
             case SAV1:
-                Add("kanto", s => s <= 151 ? s : 0);
+            case SAV3FRLG:
+                AddData("kanto");
+                break;
+            case SAV2:
+                AddData("johto");
+                break;
+            case SAV3:
+                AddData("hoenn");
+                break;
+            case SAV4DP:
+                AddData("sinnoh");
+                break;
+            case SAV4Pt:
+                AddData("sinnoh", "sinnoh-pt");
+                break;
+            case SAV4HGSS:
+                AddData("johto", "johto-hgss");
+                break;
+            case SAV5BW:
+                AddData("unova");
+                break;
+            case SAV5B2W2:
+                AddData("unova", "unova-b2w2");
+                break;
+            case SAV6XY:
+                AddData("kalos-central");
+                AddData("kalos-coastal");
+                AddData("kalos-mountain");
+                break;
+            case SAV6AO:
+                AddData("hoenn", "hoenn-oras");
+                break;
+            case SAV7USUM:
+                foreach (var k in new[] { "alola", "melemele", "akala", "ulaula", "poni" })
+                    AddData(k, k + "-usum");
+                break;
+            case SAV7SM:
+                foreach (var k in new[] { "alola", "melemele", "akala", "ulaula", "poni" })
+                    AddData(k);
+                break;
+            case SAV7b:
+                AddData("kanto", "kanto-lgpe");
                 break;
             case SAV8BS:
-                Add("sinnoh", s => ((PersonalInfo8BDSP)sav.Personal[s]).PokeDexIndex);
+                AddData("sinnoh", "sinnoh-bdsp");
                 break;
             case SAV8SWSH:
                 Add("galar", s => ((PersonalInfo8SWSH)sav.Personal[s]).PokeDexIndex);
@@ -182,15 +231,16 @@ public sealed partial class SaveSession
                 Add("crown", s => ((PersonalInfo8SWSH)sav.Personal[s]).CrownDexIndex);
                 break;
             case SAV8LA:
-                Add("hisui", s => ((PersonalInfo8LA)sav.Personal[s]).DexIndexHisui);
+                AddData("hisui");
                 break;
             case SAV9SV:
-                Add("paldea", s => ((PersonalInfo9SV)sav.Personal[s]).DexPaldea);
-                Add("kitakami", s => ((PersonalInfo9SV)sav.Personal[s]).DexKitakami);
-                Add("blueberry", s => ((PersonalInfo9SV)sav.Personal[s]).DexBlueberry);
+                AddData("paldea");
+                AddData("kitakami");
+                AddData("blueberry");
                 break;
             case SAV9ZA:
-                Add("lumiose", s => ((PersonalInfo9ZA)sav.Personal[s]).DexIndex);
+                AddData("lumiose");
+                AddData("hyperspace");
                 break;
         }
         return regions;
