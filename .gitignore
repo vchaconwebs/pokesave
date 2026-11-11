@@ -25,3 +25,6 @@ tests/saves-local/*
 .DS_Store
 Thumbs.db
 *.log
+
+# Caché de PokéAPI de los scripts de datos
+tools/.cache/
