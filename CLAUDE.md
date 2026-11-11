@@ -145,6 +145,15 @@ cd web && npm run typecheck && npm run lint
   PKHeX recorta valores fuera de rango (un Sprigatito en Blanco se convertía en Genesect).
   La exportación sale en inglés, que es el formato estándar de Showdown.
 - Importar en el equipo siempre añade al final (no puede quedar un hueco en medio).
+- **Nada que no exista en el juego**: movimientos contra `LegalMoves` (los de
+  `FilteredGameDataSource`, no solo `≤ MaxMoveID`: en SwSh hay 71 con número válido quitados
+  del juego, 314 en DBPR, 227 en SV y 673 en Leyendas), especie+forma con
+  `Personal.IsPresentInGame`, objetos con `HeldItems` y los de cada bolsillo. Al importar, una
+  habilidad inválida se cambia por la primera de la especie y un objeto que no existe se quita.
+  `SafetyTests` lo comprueba juego a juego.
+- **Pokédex regional**: Teselia en Blanco/Negro (mismo orden que la Nacional, 494-649 → 000-155),
+  Kanto en Gen 1, y las que trae PKHeX en DBPR, SwSh (Galar, Armadura, Corona), Leyendas, SV
+  (Paldea, Noroteo, Arándano) y Z-A. Del resto (B2N2, XY, ROZA, SL, USUL…) aún no hay datos.
 
 ## Mediciones de la Fase 0
 

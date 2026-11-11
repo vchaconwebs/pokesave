@@ -202,22 +202,37 @@ export function DexPanel({ engine, version, onSaved }: { engine: Engine; version
   const [filter, setFilter] = useState<DexFilter>('all')
   const [query, setQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // Pokédex elegida: la regional del juego por defecto, o la Nacional.
+  const [chosen, setChosen] = useState<string | null>(null)
+  const region = chosen === 'national' ? null : (dex?.regions.find((r) => r.key === chosen) ?? dex?.regions[0] ?? null)
+
+  // Entradas de la Pokédex elegida, con su número (regional o nacional).
+  const book = useMemo(() => {
+    if (!dex) return []
+    if (!region) return dex.entries.map((e) => ({ ...e, number: e.species }))
+    const bySpecies = new Map(dex.entries.map((e) => [e.species, e]))
+    return region.entries.flatMap((r) => {
+      const e = bySpecies.get(r.species)
+      return e ? [{ ...e, number: r.number }] : []
+    })
+  }, [dex, region])
 
   const shown = useMemo(() => {
-    if (!dex) return []
     const q = normalize(query.trim())
-    return dex.entries.filter((e) => {
+    return book.filter((e) => {
       if (filter === 'caught' && !e.caught) return false
       if (filter === 'seen' && (!e.seen || e.caught)) return false
       if (filter === 'missing' && e.caught) return false
-      return !q || normalize(e.name).includes(q) || String(e.species) === q
+      return !q || normalize(e.name).includes(q) || String(e.number) === q || String(e.species) === q
     })
-  }, [dex, filter, query])
+  }, [book, filter, query])
 
   if (!dex) return null
-  const caught = dex.entries.filter((e) => e.caught).length
-  const seen = dex.entries.filter((e) => e.seen).length
-  const total = dex.entries.length
+  const caught = book.filter((e) => e.caught).length
+  const seen = book.filter((e) => e.seen).length
+  const total = book.length
+  // Las acciones en bloque se aplican a la Pokédex que se está viendo.
+  const scope = region ? book.map((e) => e.species) : []
 
   const apply = (species: number[], s: boolean, c: boolean) => {
     const r = engine.setDex({ species, seen: s, caught: c }, lang)
@@ -236,6 +251,19 @@ export function DexPanel({ engine, version, onSaved }: { engine: Engine; version
 
   return (
     <section className="dex-panel" aria-label={t('navDex')}>
+      {dex.regions.length > 0 && (
+        <div className="dex-books" role="tablist">
+          {[...dex.regions.map((r) => ({ key: r.key, n: r.entries.length })), { key: 'national', n: dex.entries.length }].map((b) => {
+            const on = b.key === 'national' ? !region : region?.key === b.key
+            return (
+              <button key={b.key} type="button" role="tab" aria-selected={on} className="dex-book" onClick={() => setChosen(b.key)}>
+                {b.key === 'national' ? t('dexNational') : t(`dex_${b.key}` as Key)}
+                <span className="pouch-tab__n">{b.n}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
       <div className="dex-panel__top">
         <div className="lcd__screen dex-panel__lcd">
           <span className="px lcd__value">
@@ -248,13 +276,13 @@ export function DexPanel({ engine, version, onSaved }: { engine: Engine; version
         </div>
         {dex.editable ? (
           <div className="dex-panel__bulk">
-            <button type="button" className="btn btn--sm" onClick={() => apply([], true, false)}>
+            <button type="button" className="btn btn--sm" onClick={() => apply(scope, true, false)}>
               {t('dexSeenAll')}
             </button>
-            <button type="button" className="btn btn--red btn--sm" onClick={() => apply([], true, true)}>
+            <button type="button" className="btn btn--red btn--sm" onClick={() => apply(scope, true, true)}>
               <PokeBall size={18} /> {t('dexCompleteAll')}
             </button>
-            <button type="button" className="btn btn--sm" onClick={() => window.confirm(t('dexConfirmClear')) && apply([], false, false)}>
+            <button type="button" className="btn btn--sm" onClick={() => window.confirm(t('dexConfirmClear')) && apply(scope, false, false)}>
               {t('dexClearAll')}
             </button>
           </div>
@@ -286,6 +314,7 @@ export function DexPanel({ engine, version, onSaved }: { engine: Engine; version
           ))}
         </div>
         {dex.editable && <p className="muted dex-panel__help">{t('dexHelp')}</p>}
+        {!region && dex.regions.length > 0 && <p className="muted dex-panel__help">{t('dexNationalNote')}</p>}
       </div>
 
       {shown.length === 0 ? (
@@ -302,9 +331,9 @@ export function DexPanel({ engine, version, onSaved }: { engine: Engine; version
                   className={`dex-cell dex-cell--${state}`}
                   onClick={() => cycle(e)}
                   disabled={!dex.editable}
-                  aria-label={`#${e.species} ${e.seen ? e.name : '???'}: ${t(`dexState_${state}` as Key)}`}
+                  aria-label={`#${e.number} ${e.seen ? e.name : '???'}: ${t(`dexState_${state}` as Key)}`}
                 >
-                  <span className="px dex-cell__n">{String(e.species).padStart(3, '0')}</span>
+                  <span className="px dex-cell__n">{String(e.number).padStart(3, '0')}</span>
                   {url && <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" />}
                   <span className="dex-cell__name">{e.seen ? e.name : '???'}</span>
                   {e.caught && (

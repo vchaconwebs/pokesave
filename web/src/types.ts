@@ -202,7 +202,15 @@ export interface DexEntry {
 
 export interface DexView {
   editable: boolean
+  /** Pokédex Nacional. */
   entries: DexEntry[]
+  /** Pokédex regionales del juego, con su numeración. */
+  regions: DexRegion[]
+}
+
+export interface DexRegion {
+  key: string
+  entries: { species: number; number: number }[]
 }
 
 export interface DexEdit {
