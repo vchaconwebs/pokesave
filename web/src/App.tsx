@@ -5,6 +5,7 @@ import type { GameLists, SaveSummary, SlotRef } from './types'
 import { SaveView, type Section } from './components/SaveView'
 import { BagPanel, DexPanel, ImportDialog } from './components/Phase2Views'
 import { AssistantPanel } from './components/AssistantPanel'
+import { ItemFinderPanel } from './components/ItemFinderPanel'
 import { assistantGame } from './assistant'
 import { PokemonEditor } from './components/PokemonEditor'
 import { BoxBrowser, ExportDialog, TrainerEditor } from './components/Panels'
@@ -324,6 +325,7 @@ export default function App() {
                 pc={ready && <BoxBrowser engine={ready} save={loaded.save} version={boxVersion} onOpen={setEditing} onImport={setImporting} />}
                 bag={ready && <BagPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
                 dex={ready && <DexPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
+                items={ready && <ItemFinderPanel engine={ready} gameId={loaded.save.gameId} version={boxVersion} />}
                 assistant={
                   ready &&
                   assistantGame(loaded.save.gameId) && (

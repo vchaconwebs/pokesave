@@ -223,3 +223,23 @@ export interface PokemonExport {
   fileName: string
   showdown: string
 }
+
+/** Fase 4: un objeto del juego para el buscador. */
+export interface FinderItem {
+  id: number
+  name: string
+  /** Bolsillo donde va (Items, TMHMs, Medicine…). */
+  pouch: string
+  /** Cuántos tienes entre la mochila y el PC. */
+  count: number
+  /** Si es una MT/MO/DT: el movimiento que enseña. */
+  move: number | null
+  moveName: string | null
+  moveType: number | null
+}
+
+export interface ItemFinderView {
+  items: FinderItem[]
+  /** El juego deja leer flags de evento (para saber qué objetos del mapa has cogido). */
+  hasFlags: boolean
+}

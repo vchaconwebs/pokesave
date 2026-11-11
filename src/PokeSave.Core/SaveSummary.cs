@@ -73,5 +73,8 @@ public sealed record MoveSlot(int Id, string Name, TypeInfo Type);
 [JsonSerializable(typeof(PouchEdit))]
 [JsonSerializable(typeof(DexView))]
 [JsonSerializable(typeof(DexEdit))]
+[JsonSerializable(typeof(ItemFinderView))]
+[JsonSerializable(typeof(int[]))]
+[JsonSerializable(typeof(bool[]))]
 [JsonSerializable(typeof(PokemonExport))]
 public sealed partial class PokeSaveJson : JsonSerializerContext;

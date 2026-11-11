@@ -27,7 +27,10 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
   Pokédex editable de Gen 1 a 9 (menos Leyendas: Arceus), Pokédex regionales de todos los
   juegos y asistente para los 18 grupos de juegos (Blanco/Negro con medallas y estaciones; el
   resto con los datos de PKHeX).
-- Siguiente: Fase 4 (buscador de objetos y MT).
+- **Fase 4 (buscador de objetos y MT): hecha.** Rama `fase-4`. Sección "Objetos": todos los
+  objetos del juego con cuántos tienes (mochila + PC), qué movimiento enseña cada MT/MO/DT (de
+  Rojo a Z-A) y, en Esmeralda, Rubí/Zafiro y Rojo Fuego/Verde Hoja, dónde está cada objeto
+  (suelo, oculto, regalo, tienda) y si ya lo has cogido según los flags de la partida.
 
 ## Estructura
 
@@ -209,6 +212,26 @@ cd web && npm run typecheck && npm run lint && npm test
     "solo lo que sale en tu versión". Si la partida no dice la versión (Rubí/Zafiro, DP, HGSS,
     Gen 1/2…), se pregunta y se recuerda.
   - Blanco/Negro sigue con `bw.json` (más rico: medallas, estaciones, probabilidades).
+
+## Decisiones de la Fase 4
+
+- **MT → movimiento** (`SaveSession.Machines`): tablas públicas de PKHeX (`ItemStorageX.Machine`
+  + `PersonalInfoX.MachineMoves` o `LearnSourceX.MachineMoves`). Ojo: en SwSh la MT00 es el
+  objeto 1230 y va aparte; en SV la tabla de movimientos va por número de MT (la 0 no existe) y
+  la de objetos tiene huecos, así que se empareja por el número del nombre inglés ("TM123").
+- **Nombres de objetos**: Gen 1-3 numeran los objetos a su manera. Hay que usar
+  `GetItemStrings(context, version)`, no `itemlist` (antes la mochila de Gen 1-3 enseñaba
+  nombres equivocados).
+- **Dónde está cada objeto (Gen 3)**: `node tools/build-gen3-items.mjs` lee las decompilaciones
+  de pret (map.json: Poké Balls con script `finditem` y `hidden_item`; scripts.inc: `giveitem`,
+  `giveitem_msg`, `additem` y `pokemart`) y escribe `web/public/data/items/{e,frlg,rs}.json`.
+  Los flags salen de `flags.h` (con sus expresiones) y los objetos de `items.h` (enum en
+  Esmeralda, #define en el resto; las MT de Esmeralda por nombre de movimiento salen de
+  `tms_hms.h`). El flag de un regalo es el primer `setflag` tras darlo o el `goto_if_set` del
+  principio; si no hay, se muestra sin estado. Los nombres de lugar son los de PKHeX por número
+  de sección del mapa (`gen3-locations.json`, lo escribe el DataBuilder).
+- Resto de juegos: sin datos de dónde está cada objeto (no hay decompilación con flags). Gen 4
+  (pokeplatinum, pokeheartgold) y Gen 1/2 (pokered, pokecrystal) son los siguientes candidatos.
 
 ## Mediciones de la Fase 0
 

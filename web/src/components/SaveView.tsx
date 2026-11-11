@@ -4,7 +4,7 @@ import { useI18n, type Key } from '../i18n'
 import { typeColor, typeInk } from '../theme'
 import { Icon, MonSprite, PokeBall, TypeBadge } from './visuals'
 
-export type Section = 'team' | 'bag' | 'dex' | 'assistant'
+export type Section = 'team' | 'bag' | 'items' | 'dex' | 'assistant'
 
 export function SaveView({
   save,
@@ -20,6 +20,7 @@ export function SaveView({
   onSection,
   bag,
   dex,
+  items,
   assistant,
 }: {
   save: SaveSummary
@@ -35,7 +36,9 @@ export function SaveView({
   onSection: (s: Section) => void
   bag?: ReactNode
   dex?: ReactNode
-  /** Solo en los juegos con asistente (Blanco/Negro). */
+  /** Fase 4: buscador de objetos y MT. */
+  items?: ReactNode
+  /** Solo en los juegos con asistente. */
   assistant?: ReactNode
 }) {
   const { t, lang } = useI18n()
@@ -128,6 +131,7 @@ export function SaveView({
           [
             ['team', 'navTeam'],
             ['bag', 'navBag'],
+            ...(items ? [['items', 'navItems']] : []),
             ['dex', 'navDex'],
             ...(assistant ? [['assistant', 'navAssistant']] : []),
           ] as [Section, Key][]
@@ -146,6 +150,7 @@ export function SaveView({
 
       {section === 'bag' && bag}
       {section === 'dex' && dex}
+      {section === 'items' && items}
       {section === 'assistant' && assistant}
 
       {section === 'team' && (

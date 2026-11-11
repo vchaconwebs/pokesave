@@ -35,3 +35,8 @@ public sealed record DexEdit(IReadOnlyList<int> Species, bool Seen, bool Caught)
 
 /// <summary>Pokémon exportado: archivo .pk* y texto en formato Showdown.</summary>
 public sealed record PokemonExport(string FileName, string Showdown);
+
+/// <summary>Un objeto del juego para el buscador: cuántos tienes y, si es MT, qué enseña.</summary>
+public sealed record FinderItem(int Id, string Name, string Pouch, int Count, int? Move, string? MoveName, byte? MoveType);
+
+public sealed record ItemFinderView(IReadOnlyList<FinderItem> Items, bool HasFlags);

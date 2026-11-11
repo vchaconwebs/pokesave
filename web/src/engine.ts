@@ -15,7 +15,7 @@ import type {
   PouchEdit,
   SlotRef,
   TrainerEdit,
-} from './types'
+ ItemFinderView } from './types'
 
 interface EngineExports {
   Load(data: Uint8Array, fileName: string, language: string): string
@@ -34,6 +34,8 @@ interface EngineExports {
   Bag(language: string): string
   SetPouch(editJson: string, language: string): string
   Dex(language: string): string
+  ItemFinder(language: string): string
+  EventFlags(idsJson: string): string
   SetDex(editJson: string, language: string): string
   ExportPokemonData(slotJson: string, language: string): Uint8Array
   ExportPokemonInfo(slotJson: string, language: string): string
@@ -60,6 +62,10 @@ export interface Engine {
   setPouch(edit: PouchEdit, language: string): EditResult
   dex(language: string): DexView | null
   setDex(edit: DexEdit, language: string): EditResult
+  /** Fase 4: todos los objetos del juego con cuántos tienes y qué enseña cada MT. */
+  itemFinder(language: string): ItemFinderView | null
+  /** Flags de evento (objetos recogidos…); null si el juego no los expone. */
+  eventFlags(ids: number[]): boolean[] | null
   exportPokemon(at: SlotRef, language: string): { data: Uint8Array; info: PokemonExport } | null
   importPokemonFile(at: SlotRef, data: Uint8Array, fileName: string, language: string): EditResult
   importShowdown(at: SlotRef, text: string, language: string): EditResult
@@ -111,6 +117,8 @@ async function start(onProgress?: (p: Progress) => void): Promise<Engine> {
     setPouch: (edit, language) => JSON.parse(exports.SetPouch(JSON.stringify(edit), language)) as EditResult,
     dex: (language) => JSON.parse(exports.Dex(language)) as DexView | null,
     setDex: (edit, language) => JSON.parse(exports.SetDex(JSON.stringify(edit), language)) as EditResult,
+    itemFinder: (language) => JSON.parse(exports.ItemFinder(language)) as ItemFinderView | null,
+    eventFlags: (ids) => JSON.parse(exports.EventFlags(JSON.stringify(ids))) as boolean[] | null,
     exportPokemon: (at, language) => {
       const info = JSON.parse(exports.ExportPokemonInfo(JSON.stringify(at), language)) as PokemonExport | null
       return info ? { info, data: exports.ExportPokemonData(JSON.stringify(at), language) } : null

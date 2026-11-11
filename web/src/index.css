@@ -3230,3 +3230,27 @@ p {
     transition: none !important;
   }
 }
+
+/* ---------- Fase 4 · Buscador de objetos ---------- */
+.finder { display: grid; gap: 14px; }
+.finder__stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.finder__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.finder-item {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+.finder-item.is-owned { box-shadow: inset 0 0 0 2px var(--good); }
+.finder-item__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.finder-item__name { font-weight: 700; }
+.finder-item__move { font-size: 0.78rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.finder-item__pouch { font-size: 0.78rem; color: var(--muted); }
+.finder-item__count { margin-left: auto; font-weight: 700; color: var(--good); }
+.finder-item__count.is-zero { color: inherit; opacity: 0.55; font-weight: 500; font-size: 0.85rem; }
+.finder-spots { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: 0.88rem; }
+.finder-spot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.finder-spot small { opacity: 0.7; }
+.finder-spot.is-done { opacity: 0.55; }
+.finder-spot__state { margin-left: auto; font-size: 0.78rem; font-weight: 700; color: var(--good); }
+.finder-spot__state.is-pending { color: var(--mid); }

@@ -132,6 +132,19 @@ public static partial class Engine
         return JsonSerializer.Serialize(result, PokeSaveJson.Default.EditResult);
     }
 
+    [JSExport]
+    public static string ItemFinder(string language)
+        => _session is null ? "null" : JsonSerializer.Serialize(_session.GetItemFinder(language), PokeSaveJson.Default.ItemFinderView);
+
+    /// <summary>Flags de evento (JSON con una lista de números) → JSON con una lista de bool, o null.</summary>
+    [JSExport]
+    public static string EventFlags(string idsJson)
+    {
+        var ids = Parse(idsJson, PokeSaveJson.Default.Int32Array);
+        var result = ids is null ? null : _session?.GetEventFlags(ids);
+        return result is null ? "null" : JsonSerializer.Serialize(result, PokeSaveJson.Default.BooleanArray);
+    }
+
     /// <summary>Datos del archivo .pk* (vacío si no hay Pokémon en ese hueco).</summary>
     [JSExport]
     public static byte[] ExportPokemonData(string slotJson, string language)

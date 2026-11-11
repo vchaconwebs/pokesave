@@ -51,6 +51,19 @@ foreach (var g in groups)
     Console.WriteLine($"{g.Key,-5} {data.Locations.Count,4} lugares, {data.Species.Count(s => s.Value.Enc is not null),4} especies con encuentros, {new FileInfo(file).Length / 1024,4} KB  métodos: {string.Join(",", data.Methods)}");
 }
 
+// Nombres de los lugares de Gen 3 (número de sección del mapa) para el buscador de objetos
+// (web/public/data/items/*.json, lo genera tools/build-gen3-items.mjs).
+if (only is null || only.Contains("gen3-locations"))
+{
+    var itemsDir = Path.Combine(root, "web", "public", "data", "items");
+    Directory.CreateDirectory(itemsDir);
+    var g3 = new List<LocationName>();
+    for (ushort i = 0; i < 213; i++)
+        g3.Add(new LocationName(es.GetLocationName(false, i, 3, 3, GameVersion.E), en.GetLocationName(false, i, 3, 3, GameVersion.E)));
+    File.WriteAllText(Path.Combine(itemsDir, "gen3-locations.json"), JsonSerializer.Serialize(g3));
+    Console.WriteLine($"gen3-locations: {g3.Count} lugares (p. ej. {g3[16].Es} / {g3[88].Es})");
+}
+
 GameData Build(Group g)
 {
     var locations = new List<LocationName>();
