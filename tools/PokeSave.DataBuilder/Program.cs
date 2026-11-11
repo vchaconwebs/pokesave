@@ -53,7 +53,7 @@ foreach (var g in groups)
 
 // Nombres de los lugares de Gen 3 (número de sección del mapa) para el buscador de objetos
 // (web/public/data/items/*.json, lo genera tools/build-gen3-items.mjs).
-if (only is null || only.Contains("gen3-locations"))
+if (only is null || only.Contains("locations"))
 {
     var itemsDir = Path.Combine(root, "web", "public", "data", "items");
     Directory.CreateDirectory(itemsDir);
@@ -62,6 +62,13 @@ if (only is null || only.Contains("gen3-locations"))
         g3.Add(new LocationName(es.GetLocationName(false, i, 3, 3, GameVersion.E), en.GetLocationName(false, i, 3, 3, GameVersion.E)));
     File.WriteAllText(Path.Combine(itemsDir, "gen3-locations.json"), JsonSerializer.Serialize(g3));
     Console.WriteLine($"gen3-locations: {g3.Count} lugares (p. ej. {g3[16].Es} / {g3[88].Es})");
+
+    // Gen 2: el lugar de captura es el "landmark" del mapa (pret: constants/landmark_constants.asm).
+    var g2 = new List<LocationName>();
+    for (ushort i = 0; i < 128; i++)
+        g2.Add(new LocationName(es.GetLocationName(false, i, 2, 2, GameVersion.C), en.GetLocationName(false, i, 2, 2, GameVersion.C)));
+    File.WriteAllText(Path.Combine(itemsDir, "gen2-locations.json"), JsonSerializer.Serialize(g2));
+    Console.WriteLine($"gen2-locations: {g2.Count} lugares (p. ej. {g2[1].Es} / {g2[2].Es})");
 }
 
 GameData Build(Group g)

@@ -230,8 +230,11 @@ cd web && npm run typecheck && npm run lint && npm test
   `tms_hms.h`). El flag de un regalo es el primer `setflag` tras darlo o el `goto_if_set` del
   principio; si no hay, se muestra sin estado. Los nombres de lugar son los de PKHeX por número
   de sección del mapa (`gen3-locations.json`, lo escribe el DataBuilder).
+- **Gen 2** (`tools/build-gen2-items.mjs`, pokecrystal y pokegold): mismo formato. Constantes de
+  RGBDS (`const_def`, `const`, `const_skip`, `add_tm`/`add_hm`; ojo con no contar los `const`
+  de dentro de `MACRO … ENDM`), lugar = landmark del mapa (`gen2-locations.json`).
 - Resto de juegos: sin datos de dónde está cada objeto (no hay decompilación con flags). Gen 4
-  (pokeplatinum, pokeheartgold) y Gen 1/2 (pokered, pokecrystal) son los siguientes candidatos.
+  (pokeplatinum, pokeheartgold) y Gen 1 (pokered, con objetos "missable") son los candidatos.
 
 ## Mediciones de la Fase 0
 

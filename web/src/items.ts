@@ -1,8 +1,9 @@
 // Fase 4 · Buscador de objetos. Lógica pura, sin React, para poder probarla.
 // - Todos los juegos: qué objetos existen, cuántos tienes y qué enseña cada MT (motor PKHeX).
-// - Gen 3 (Esmeralda, Rojo Fuego/Verde Hoja, Rubí/Zafiro): dónde está cada objeto y si ya lo
-//   has recogido, con public/data/items/<juego>.json (tools/build-gen3-items.mjs, sacado de las
-//   decompilaciones de pret) y los flags de evento de la partida.
+// - Gen 2 y 3 (Oro/Plata, Cristal, Rubí/Zafiro, Esmeralda, Rojo Fuego/Verde Hoja): dónde está
+//   cada objeto y si ya lo has recogido, con public/data/items/<juego>.json
+//   (tools/build-gen2-items.mjs y build-gen3-items.mjs, sacados de las decompilaciones de pret)
+//   y los flags de evento de la partida.
 
 /** [objeto, mapa, tipo (0 suelo, 1 oculto, 2 regalo), flag (-1 si no hay)]. */
 export type RawSpot = [number, number, number, number]
@@ -35,6 +36,8 @@ const KINDS: SpotKind[] = ['ground', 'hidden', 'gift']
 
 /** Datos de objetos para la partida (por su gameId de PKHeX), si los hay. */
 export function itemDataKey(gameId: string): string | null {
+  if (gameId === 'C') return 'c'
+  if (['GD', 'SI', 'GS'].includes(gameId)) return 'gs'
   if (gameId === 'E') return 'e'
   if (['FR', 'LG', 'FRLG'].includes(gameId)) return 'frlg'
   if (['R', 'S', 'RS'].includes(gameId)) return 'rs'
@@ -63,10 +66,16 @@ const ROOM_ES: Record<string, string> = {
   Top: 'Cima',
 }
 
-/** "GraniteCave_B1F" → "B1F"; "PetalburgCity_Mart" → "Tienda"; "Route102" → null. */
+/**
+ * "GraniteCave_B1F" → "B1F"; "PetalburgCity_Mart" → "Tienda"; "Route102" → null.
+ * En Gen 2 los mapas no llevan "_": "GoldenrodDeptStore2F" → "2F" si hay planta.
+ */
 export function mapDetail(name: string, lang: string): string | null {
   const i = name.indexOf('_')
-  if (i < 0) return null
+  if (i < 0) {
+    const floor = /(B?\d+F)$/.exec(name)
+    return floor ? floor[1] : null
+  }
   return name
     .slice(i + 1)
     .split('_')
@@ -129,7 +138,8 @@ export function loadItemData(key: string) {
         if (!r.ok) throw new Error(`${file} ${r.status}`)
         return r.json()
       })
-    p = Promise.all([get(`${key}.json`), get('gen3-locations.json')])
+    const locations = key === 'c' || key === 'gs' ? 'gen2-locations.json' : 'gen3-locations.json'
+    p = Promise.all([get(`${key}.json`), get(locations)])
       .then(([data, locations]) => ({ data: data as ItemData, locations: locations as { Es: string; En: string }[] }))
       .catch((err) => {
         cache.delete(key)

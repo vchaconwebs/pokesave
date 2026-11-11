@@ -5,12 +5,15 @@ import { buildSpots, flagIds, itemDataKey, mapDetail, spotsByItem, type ItemData
 
 const load = (f: string) => JSON.parse(readFileSync(resolve(__dirname, `../public/data/items/${f}`), 'utf8'))
 const locations = load('gen3-locations.json') as { Es: string; En: string }[]
+const locations2 = load('gen2-locations.json') as { Es: string; En: string }[]
 
 describe('buscador de objetos (Gen 3)', () => {
   it('elige los datos según el juego de la partida', () => {
     expect(itemDataKey('E')).toBe('e')
     expect(itemDataKey('LG')).toBe('frlg')
     expect(itemDataKey('RS')).toBe('rs')
+    expect(itemDataKey('C')).toBe('c')
+    expect(itemDataKey('GS')).toBe('gs')
     expect(itemDataKey('W')).toBeNull()
   })
 
@@ -46,5 +49,18 @@ describe('buscador de objetos (Gen 3)', () => {
     expect(mapDetail('GraniteCave_B1F', 'es')).toBe('B1F')
     expect(mapDetail('PetalburgCity_Mart', 'es')).toBe('Tienda')
     expect(mapDetail('Route102', 'es')).toBeNull()
+  })
+
+  it('Cristal: la MO01 (Corte) la dan en el Encinar y la MT de Blanca en Trigal', () => {
+    const c = load('c.json') as ItemData
+    const by = spotsByItem(buildSpots(c, locations2, new Map(), 'es'))
+    expect(by.get(0xf3)?.map((s) => s.place)).toContain('Encinar') // MO01
+    // MT45 Atracción = 0xED: entre las MT hay dos huecos sin usar (0xC3 y 0xDC).
+    expect(by.get(0xed)?.some((s) => s.place === 'Ciudad Trigal')).toBe(true)
+    expect(flagIds(c).length).toBeGreaterThan(200)
+  })
+
+  it('plantas en los nombres de mapa de Gen 2', () => {
+    expect(mapDetail('GoldenrodDeptStore2F', 'es')).toBe('2F')
   })
 })
