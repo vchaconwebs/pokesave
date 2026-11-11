@@ -23,6 +23,7 @@ export function SaveView({
   items,
   assistant,
   map,
+  onShare,
 }: {
   save: SaveSummary
   fileName: string
@@ -43,6 +44,8 @@ export function SaveView({
   assistant?: ReactNode
   /** Fase 5: mapa de la región (juegos con mapa). */
   map?: ReactNode
+  /** Fase 6: compartir el equipo (imagen, enlace, Showdown). */
+  onShare?: () => void
 }) {
   const { t, lang } = useI18n()
   const nf = new Intl.NumberFormat(lang)
@@ -164,6 +167,11 @@ export function SaveView({
           <PokeBall size={28} />
           <h3 id="team-title">{t('team')}</h3>
           <span className="px count">{save.party.length}/6</span>
+          {onShare && save.party.length > 0 && (
+            <button type="button" className="btn btn--sm section-head__action" onClick={onShare}>
+              {t('shButton')}
+            </button>
+          )}
         </div>
         {save.party.length === 0 ? (
           <p className="dialog">{t('emptyTeam')}</p>

@@ -3276,3 +3276,12 @@ p {
 .region-map__cell:hover { stroke: #fff; stroke-width: 2; }
 .region-map__cell.is-selected { stroke: #fff; stroke-width: 3; }
 .map-panel__detail { animation: pop 0.15s ease-out; }
+
+/* ---------- Fase 6 · Compartir el equipo ---------- */
+.section-head__action { margin-left: auto; }
+.share { display: grid; gap: 14px; }
+.share__card { width: 100%; height: auto; border-radius: 16px; box-shadow: var(--shadow); background: #0e1430; aspect-ratio: 1200 / 630; }
+.share__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.share--page { max-width: 900px; margin: 0 auto; padding: 16px; }
+.share__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.share__list li { background: var(--surface); border-radius: 14px; padding: 10px 12px; box-shadow: inset 0 0 0 2px var(--line); }

@@ -7,6 +7,8 @@ import { BagPanel, DexPanel, ImportDialog } from './components/Phase2Views'
 import { AssistantPanel } from './components/AssistantPanel'
 import { ItemFinderPanel } from './components/ItemFinderPanel'
 import { MapPanel } from './components/MapPanel'
+import { SharedTeamView, TeamShareDialog } from './components/TeamShare'
+import { decodeTeam, teamFromHash, type SharedTeam } from './share'
 import { regionMapsFor } from './regionMap'
 import { assistantGame } from './assistant'
 import { PokemonEditor } from './components/PokemonEditor'
@@ -58,6 +60,19 @@ export default function App() {
   const [exporting, setExporting] = useState(false)
   const [boxVersion, setBoxVersion] = useState(0)
   const [toast, setToast] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
+  // Equipo compartido por enlace (#team=…): se enseña sin necesidad de partida.
+  const [shared, setShared] = useState<SharedTeam | null>(null)
+  useEffect(() => {
+    const read = () => {
+      const enc = teamFromHash()
+      if (enc) decodeTeam(enc).then(setShared)
+      else setShared(null)
+    }
+    read()
+    window.addEventListener('hashchange', read)
+    return () => window.removeEventListener('hashchange', read)
+  }, [])
   const position = loaded?.save.history.position ?? 0
   const changes = Math.abs(position - exportedAt)
   const changesRef = useRef(0)
@@ -324,6 +339,7 @@ export default function App() {
                 onAddPokemon={setImporting}
                 section={section}
                 onSection={setSection}
+                onShare={ready ? () => setSharing(true) : undefined}
                 pc={ready && <BoxBrowser engine={ready} save={loaded.save} version={boxVersion} onOpen={setEditing} onImport={setImporting} />}
                 bag={ready && <BagPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
                 dex={ready && <DexPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
@@ -347,6 +363,14 @@ export default function App() {
                 </p>
               )}
             </>
+          ) : shared ? (
+            <SharedTeamView
+              team={shared}
+              onClose={() => {
+                history.replaceState(null, '', location.pathname + location.search)
+                setShared(null)
+              }}
+            />
           ) : (
             <Landing busy={busy} engine={engine} pct={pct} error={error} onPick={pickFile} />
           )}
@@ -369,6 +393,7 @@ export default function App() {
             onSaved={(s) => onEdited(s)}
           />
         )}
+        {ready && loaded && sharing && <TeamShareDialog engine={ready} save={loaded.save} onClose={() => setSharing(false)} />}
         {ready && loaded && editingTrainer && (
           <TrainerEditor engine={ready} save={loaded.save} onClose={() => setEditingTrainer(false)} onSaved={(s) => onEdited(s)} />
         )}
