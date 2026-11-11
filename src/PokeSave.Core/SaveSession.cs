@@ -53,6 +53,13 @@ public sealed partial class SaveSession
     internal static SaveSession FromSaveNoExport(SaveFile save) => new(save, []);
 
     /// <summary>Exporta la partida con checksums recalculados, en el mismo formato que se cargó.</summary>
+    /// <summary>
+    /// Nombres de objetos de ESTE juego. Gen 1-3 numeran los objetos a su manera: la lista
+    /// general (<c>itemlist</c>, la de Gen 4+) daba nombres equivocados (la MT01 de Esmeralda
+    /// salía como "Banda Recia").
+    /// </summary>
+    internal string[] ItemNames(string language) => GameInfo.GetStrings(language).GetItemStrings(Save.Context, Save.Version);
+
     public byte[] Export() => Save.Write(BinaryExportSetting.None).ToArray();
 
     public SaveSummary GetSummary(string language = "es")
@@ -153,7 +160,7 @@ public sealed partial class SaveSession
             Gender: pk.Gender,
             Nature: pk.Format >= 3 ? Get(strings.natures, (int)pk.Nature) : null,
             Ability: pk.Format >= 3 ? Get(strings.abilitylist, pk.Ability) : null,
-            HeldItem: pk.HeldItem > 0 ? Get(strings.itemlist, pk.HeldItem) : null,
+            HeldItem: pk.HeldItem > 0 ? Get(strings.GetItemStrings(pk.Context, pk.Version), pk.HeldItem) : null,
             Types: types,
             Moves: moves,
             HpCurrent: pk.Stat_HPCurrent,

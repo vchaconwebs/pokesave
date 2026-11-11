@@ -262,3 +262,30 @@ public class DumpSyntheticSaves
         }
     }
 }
+
+/// <summary>Gen 1-3 numeran los objetos a su manera: los nombres tienen que salir de su lista.</summary>
+public class ItemNameTests
+{
+    [Theory]
+    [InlineData(GameVersion.RD, 1, "Master Ball")]
+    [InlineData(GameVersion.RD, 20, "Poción")]
+    [InlineData(GameVersion.C, 1, "Master Ball")]
+    [InlineData(GameVersion.E, 289, "MT01")]
+    [InlineData(GameVersion.E, 13, "Poción")]
+    [InlineData(GameVersion.FR, 360, "Bicicleta")]
+    [InlineData(GameVersion.FR, 349, "Correo Oak")]
+    [InlineData(GameVersion.Pt, 328, "MT01")]
+    public void La_mochila_usa_los_nombres_del_juego(GameVersion game, int id, string name)
+    {
+        var bytes = game switch
+        {
+            GameVersion.E or GameVersion.FR => RealFormatTests.MakeGen3(game),
+            GameVersion.Pt => RealFormatTests.MakeGen4(game),
+            _ => RealFormatTests.MakeGen12(game),
+        };
+        Assert.True(SaveSession.TryOpen(bytes, "x.sav", out var s, out _));
+        var all = s!.GetBag().Pouches.SelectMany(p => p.Allowed).Where(o => o.Id == id).Select(o => o.Name).Distinct();
+        Assert.Equal(name, Assert.Single(all));
+        Assert.DoesNotContain(s.GetBag().Pouches.SelectMany(p => p.Allowed), o => o.Name is "(?)" or "???");
+    }
+}

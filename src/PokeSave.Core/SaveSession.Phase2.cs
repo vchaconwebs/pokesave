@@ -53,7 +53,7 @@ public sealed partial class SaveSession
 
     public BagView GetBag(string language = "es")
     {
-        var strings = GameInfo.GetStrings(language);
+        var itemNames = ItemNames(language);
         var pouches = new List<PouchView>();
         // Algunas partidas (p. ej. en blanco) no tienen los bloques de la mochila: se muestra vacía.
         var bag = Safe(() => Save.Inventory);
@@ -65,12 +65,13 @@ public sealed partial class SaveSession
                 continue;
             var items = pouch.Items
                 .Where(i => i.Index != 0 && i.Count > 0)
-                .Select(i => new BagItem(i.Index, Get(strings.itemlist, i.Index) ?? $"#{i.Index}", i.Count))
+                .Select(i => new BagItem(i.Index, Get(itemNames, i.Index) ?? $"#{i.Index}", i.Count))
                 .ToList();
             var allowed = new List<Option>();
             foreach (var id in pouch.GetAllItems())
             {
-                if (id != 0 && Get(strings.itemlist, id) is { } name)
+                // "(?)" y "???" son huecos sin usar de la tabla de objetos del juego.
+                if (id != 0 && Get(itemNames, id) is { } name && name is not ("(?)" or "???"))
                     allowed.Add(new Option(id, name));
             }
             allowed.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase));
