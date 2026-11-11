@@ -45,6 +45,60 @@ public static partial class Engine
     public static byte[] ExportOriginal()
         => _session?.Original.ToArray() ?? throw new InvalidOperationException("No hay ninguna partida cargada.");
 
+    // ---------- Fase 1: edición ----------
+
+    [JSExport]
+    public static string Lists(string language)
+        => _session is null ? "null" : JsonSerializer.Serialize(_session.GetLists(language), PokeSaveJson.Default.GameLists);
+
+    [JSExport]
+    public static string Box(int box, string language)
+    {
+        var view = _session?.GetBox(box, language);
+        return view is null ? "null" : JsonSerializer.Serialize(view, PokeSaveJson.Default.BoxView);
+    }
+
+    [JSExport]
+    public static string Pokemon(string slotJson, string language)
+    {
+        var at = Parse(slotJson, PokeSaveJson.Default.SlotRef);
+        var detail = at is null ? null : _session?.GetPokemon(at, language);
+        return detail is null ? "null" : JsonSerializer.Serialize(detail, PokeSaveJson.Default.PokemonDetail);
+    }
+
+    [JSExport]
+    public static string SetPokemon(string slotJson, string editJson, string language)
+    {
+        var at = Parse(slotJson, PokeSaveJson.Default.SlotRef);
+        var edit = Parse(editJson, PokeSaveJson.Default.PokemonEdit);
+        var result = _session is null || at is null || edit is null
+            ? new EditResult(false, "input", null, null)
+            : _session.SetPokemon(at, edit, language);
+        return JsonSerializer.Serialize(result, PokeSaveJson.Default.EditResult);
+    }
+
+    [JSExport]
+    public static string SetTrainer(string editJson, string language)
+    {
+        var edit = Parse(editJson, PokeSaveJson.Default.TrainerEdit);
+        var result = _session is null || edit is null
+            ? new EditResult(false, "input", null, null)
+            : _session.SetTrainer(edit, language);
+        return JsonSerializer.Serialize(result, PokeSaveJson.Default.EditResult);
+    }
+
+    private static T? Parse<T>(string json, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> type) where T : class
+    {
+        try
+        {
+            return JsonSerializer.Deserialize(json, type);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     [JSExport]
     public static string PkhexVersion()
         => typeof(PKHeX.Core.SaveFile).Assembly.GetName().Version?.ToString() ?? "?";

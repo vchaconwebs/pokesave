@@ -14,6 +14,7 @@ public sealed record SaveSummary(
     TrainerInfo Trainer,
     IReadOnlyList<PokemonInfo> Party,
     int BoxCount,
+    IReadOnlyList<string> BoxNames,
     int BoxSlotCount,
     int StoredCount,
     DexInfo? Pokedex,
@@ -27,6 +28,7 @@ public sealed record TrainerInfo(
     string Id,
     string? SecretId,
     uint? Money,
+    BadgeInfo? Badges,
     int MaxMoney,
     string? PlayTime);
 
@@ -59,4 +61,11 @@ public sealed record MoveSlot(int Id, string Name, TypeInfo Type);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(LoadResult))]
+[JsonSerializable(typeof(GameLists))]
+[JsonSerializable(typeof(BoxView))]
+[JsonSerializable(typeof(PokemonDetail))]
+[JsonSerializable(typeof(EditResult))]
+[JsonSerializable(typeof(SlotRef))]
+[JsonSerializable(typeof(PokemonEdit))]
+[JsonSerializable(typeof(TrainerEdit))]
 public sealed partial class PokeSaveJson : JsonSerializerContext;

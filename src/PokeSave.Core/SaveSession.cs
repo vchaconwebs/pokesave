@@ -6,7 +6,7 @@ namespace PokeSave.Core;
 /// Envuelve una partida abierta con PKHeX.Core. Es la única puerta de entrada a la lógica
 /// de partidas: la capa WASM y los tests hablan con esta clase, nunca con PKHeX directamente.
 /// </summary>
-public sealed class SaveSession
+public sealed partial class SaveSession
 {
     private readonly byte[] _original;
 
@@ -48,6 +48,9 @@ public sealed class SaveSession
     internal static SaveSession FromSave(SaveFile save)
         => new(save, save.Write(BinaryExportSetting.None).ToArray());
 
+    /// <summary>Para tests de Gen 3/4, cuyas partidas en blanco no se pueden escribir.</summary>
+    internal static SaveSession FromSaveNoExport(SaveFile save) => new(save, []);
+
     /// <summary>Exporta la partida con checksums recalculados, en el mismo formato que se cargó.</summary>
     public byte[] Export() => Save.Write(BinaryExportSetting.None).ToArray();
 
@@ -81,6 +84,7 @@ public sealed class SaveSession
             Id: sav.DisplayTID.ToString(sav.TrainerIDDisplayFormat == TrainerIDFormat.SixDigit ? "D6" : "D5"),
             SecretId: sav.Generation >= 3 ? sav.DisplaySID.ToString(sav.TrainerIDDisplayFormat == TrainerIDFormat.SixDigit ? "D4" : "D5") : null,
             Money: Safe(() => (uint?)sav.Money),
+            Badges: Safe(GetBadges),
             MaxMoney: sav.MaxMoney,
             PlayTime: Safe(() => sav.PlayTimeString));
 
@@ -96,6 +100,7 @@ public sealed class SaveSession
             Trainer: trainer,
             Party: party,
             BoxCount: sav.HasBox ? sav.BoxCount : 0,
+            BoxNames: sav.HasBox ? Enumerable.Range(0, sav.BoxCount).Select(GetBoxName).ToList() : [],
             BoxSlotCount: sav.HasBox ? sav.BoxSlotCount : 0,
             StoredCount: stored,
             Pokedex: dex,
