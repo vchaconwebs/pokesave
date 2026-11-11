@@ -6,8 +6,9 @@ partida nunca se sube a ningún servidor.
 
 **Pruébala:** https://vchaconwebs.github.io/pokesave/
 
-> Estado: **Fase 1 · editor**. Ver y editar equipo y cajas (especie, nivel, mote, naturaleza,
-> habilidad, movimientos, IVs, EVs, variocolor, objeto), entrenador y dinero, con avisos de
+> Estado: **Fase 2 · edición ampliada**. Equipo y cajas (especie, nivel, mote, naturaleza,
+> habilidad, movimientos, IVs, EVs, variocolor, objeto), entrenador y dinero, mochila,
+> Pokédex, importar/exportar Pokémon (.pk* y Showdown) y deshacer/rehacer. Avisos de
 > legalidad y descarga de la partida lista para tu juego o emulador.
 
 ## Cómo funciona

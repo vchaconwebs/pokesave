@@ -15,7 +15,11 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
   naturaleza, habilidad, movimientos, IVs, EVs, variocolor, objeto) del equipo y de las cajas,
   editar nombre y dinero del entrenador, medallas, cajas del PC, avisos de legalidad y exportar
   con copia del original obligatoria antes.
-- Siguiente: Fase 2 (mochila, Pokédex, .pk*/Showdown, deshacer). Proponer un plan antes.
+- **Fase 1 probada en emulador** por el usuario con su partida de Blanco (nivel 60, carga bien).
+- **Fase 2 (edición ampliada): hecha.** Rama `fase-2`. Mochila por bolsillos con buscador,
+  Pokédex (vistos/capturados, en bloque), exportar .pk* y Showdown, importar .pk* (también de
+  otras generaciones) y Showdown en huecos vacíos, deshacer/rehacer (botones y Ctrl+Z/Ctrl+Y).
+- Siguiente: Fase 3 (asistente de Pokédex, empezando por Blanco/Negro). Proponer un plan antes.
 
 ## Estructura
 
@@ -25,6 +29,8 @@ src/PokeSave.Core/    Lógica de partidas (C#, net10.0). Única capa que usa PKH
   SaveSummary.cs        DTOs que se mandan a la UI + contexto JSON con generador de código.
   SaveSession.Editing.cs  Fase 1: leer/editar Pokémon, cajas, entrenador, medallas, listas.
   EditModels.cs         DTOs de edición (SlotRef, PokemonEdit, EditLimits, EditResult…).
+  SaveSession.Phase2.cs   Fase 2: historial, mochila, Pokédex, importar/exportar .pk*/Showdown.
+  Phase2Models.cs       DTOs de la Fase 2.
 src/PokeSave.Wasm/    Puente browser-wasm. Expone `Engine` a JS con [JSExport].
 tests/PokeSave.Core.Tests/   xUnit. Partidas generadas, nunca reales.
 tests/saves-local/    Tus partidas reales para probar en local (en .gitignore).
@@ -117,6 +123,28 @@ cd web && npm run typecheck && npm run lint
 - Aviso del navegador al cerrar la pestaña con cambios sin descargar.
 - Los Pokémon sin movimientos no se pueden guardar hasta añadir uno (el mensaje lo explica).
 - No se distinguen formas (Alola, Galar…) ni se crean Pokémon en huecos vacíos: Fase 2.
+
+## Decisiones de la Fase 2
+
+- **Deshacer**: antes de cada cambio válido se guarda `Save.Clone()`. Máximo de pasos según el
+  tamaño de la partida (64 MB en total, entre 5 y 30 pasos). `SaveSummary.History.Position`
+  dice cuántos cambios hay; la web compara con la posición del último archivo descargado para
+  saber si hay cambios pendientes.
+- **Mochila**: se reescribe un bolsillo entero (`SetPouch`), validando que cada objeto sea de
+  ese bolsillo (`GetAllItems`), la cantidad máxima y los huecos. En Gen 5 el Caramelo Raro va
+  en Medicinas: el buscador de "añadir" solo ofrece los del bolsillo.
+- **Pokédex**: los métodos genéricos `SetSeen/SetCaught` no hacen nada en Gen 5, BDSP, SwSh,
+  SV… Gen 5 usa `Zukan5` (visto por sexo + "mostrado"). Gen 1-4 y 6 usan los genéricos. Gen 7+
+  queda en solo lectura (`DexView.Editable = false`) hasta implementar cada Zukan.
+- **Importar .pk***: los archivos van descifrados. `SaveFile.GetDecryptedPKM` espera datos
+  CIFRADOS (fallaba con cualquier Pokémon con PID ≠ 0); se copian los bytes en `Save.BlankPKM`
+  y se comprueba el checksum. Si la extensión no es la del juego se usa `EntityFormat` +
+  `EntityConverter` (transferencia entre generaciones). PK4 y PK5 miden lo mismo (136 bytes):
+  por eso manda la extensión.
+- **Showdown**: `TryParseAnyLanguage` y se comprueban especie y movimientos ANTES de aplicar:
+  PKHeX recorta valores fuera de rango (un Sprigatito en Blanco se convertía en Genesect).
+  La exportación sale en inglés, que es el formato estándar de Showdown.
+- Importar en el equipo siempre añade al final (no puede quedar un hueco en medio).
 
 ## Mediciones de la Fase 0
 
