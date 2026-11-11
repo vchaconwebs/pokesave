@@ -18,6 +18,12 @@ export function spriteUrl(species: number, shiny: boolean) {
     : `${SPRITES}/${s}${species}.png`
 }
 
+/** Sprite estático (más ligero) para las cuadrículas de las cajas. */
+export function spriteStillUrl(species: number, shiny: boolean) {
+  if (species <= 0 || species > 1025) return null
+  return `${SPRITES}/${shiny ? 'shiny/' : ''}${species}.png`
+}
+
 /** Color de acento por juego (solo colores, sin logos). */
 const GAME_ACCENTS: Record<string, [string, string]> = {
   RD: ['#ef4444', '#f97316'], BU: ['#3b82f6', '#6366f1'], GN: ['#22c55e', '#84cc16'], YW: ['#eab308', '#f59e0b'],

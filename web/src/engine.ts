@@ -14,6 +14,7 @@ interface EngineExports {
   Pokemon(slotJson: string, language: string): string
   SetPokemon(slotJson: string, editJson: string, language: string): string
   SetTrainer(editJson: string, language: string): string
+  PreviewPokemon(slotJson: string, editJson: string, language: string): string
 }
 
 export interface Engine {
@@ -27,6 +28,8 @@ export interface Engine {
   pokemon(at: SlotRef, language: string): PokemonDetail | null
   setPokemon(at: SlotRef, edit: PokemonEdit, language: string): EditResult
   setTrainer(edit: TrainerEdit, language: string): EditResult
+  /** Cómo quedaría el Pokémon con estos cambios, sin tocar la partida. */
+  previewPokemon(at: SlotRef, edit: PokemonEdit, language: string): EditResult
   pkhexVersion: string
   loadMs: number
 }
@@ -67,6 +70,8 @@ async function start(onProgress?: (p: Progress) => void): Promise<Engine> {
     pokemon: (at, language) => JSON.parse(exports.Pokemon(JSON.stringify(at), language)) as PokemonDetail | null,
     setPokemon: (at, edit, language) =>
       JSON.parse(exports.SetPokemon(JSON.stringify(at), JSON.stringify(edit), language)) as EditResult,
+    previewPokemon: (at, edit, language) =>
+      JSON.parse(exports.PreviewPokemon(JSON.stringify(at), JSON.stringify(edit), language)) as EditResult,
     setTrainer: (edit, language) => JSON.parse(exports.SetTrainer(JSON.stringify(edit), language)) as EditResult,
     pkhexVersion: exports.PkhexVersion(),
     loadMs: Math.round(performance.now() - t0),

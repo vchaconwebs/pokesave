@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { downloadBytes, loadEngine, type Engine, type Progress } from './engine'
 import { I18nContext, detectLang, makeT, useI18n, type Key, type Lang } from './i18n'
-import type { SaveSummary } from './types'
+import type { GameLists, SaveSummary, SlotRef } from './types'
 import { SaveView } from './components/SaveView'
+import { PokemonEditor } from './components/PokemonEditor'
+import { BoxBrowser, ExportDialog, TrainerEditor } from './components/Panels'
 import { Icon, Logo, PokeBall } from './components/visuals'
 import { gameAccent } from './theme'
 import '@fontsource-variable/fredoka'
@@ -40,6 +42,17 @@ export default function App() {
   const [error, setError] = useState<{ key: Key; hint?: Key } | null>(null)
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
+  // Fase 1: edición
+  const [changes, setChanges] = useState(0)
+  const [editing, setEditing] = useState<SlotRef | null>(null)
+  const [editingTrainer, setEditingTrainer] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [boxVersion, setBoxVersion] = useState(0)
+  const [toast, setToast] = useState<string | null>(null)
+  const changesRef = useRef(0)
+  useEffect(() => {
+    changesRef.current = changes
+  }, [changes])
   const queued = useRef<File | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -82,6 +95,7 @@ export default function App() {
   const openFile = useCallback(
     async (file: File) => {
       setError(null)
+      if (changesRef.current > 0 && !window.confirm(t('leaveWarning'))) return
       if (engine.status !== 'ready') {
         queued.current = file // se abrirá en cuanto el motor esté listo
         setBusy(true)
@@ -95,6 +109,8 @@ export default function App() {
         const parseMs = Math.round(performance.now() - t0)
         if (result.ok && result.save) {
           setLoaded({ save: result.save, fileName: file.name, parseMs })
+          setChanges(0)
+          setBoxVersion((v) => v + 1)
         } else {
           setLoaded(null)
           setError(result.error === 'empty' ? { key: 'errEmpty' } : { key: 'errUnknown', hint: 'errUnknownHint' })
@@ -106,7 +122,7 @@ export default function App() {
         setBusy(false)
       }
     },
-    [engine, lang],
+    [engine, lang, t],
   )
 
   // Archivo soltado antes de que el motor terminara de cargar.
@@ -121,6 +137,34 @@ export default function App() {
       setBusy(false)
     }
   }, [engine, openFile])
+
+  // Aviso del navegador si se cierra la pestaña con cambios sin descargar.
+  useEffect(() => {
+    if (changes === 0) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [changes])
+
+  useEffect(() => {
+    if (!toast) return
+    const id = setTimeout(() => setToast(null), 2600)
+    return () => clearTimeout(id)
+  }, [toast])
+
+  const ready = engine.status === 'ready' ? engine.engine : null
+
+  // Listas de especies, movimientos, objetos… del juego cargado (se recalculan al cambiar
+  // de partida o de idioma).
+  const loadedId = loaded ? loaded.fileName + loaded.parseMs : null
+  const lists = useMemo<GameLists | null>(() => (ready && loadedId ? ready.lists(lang) : null), [ready, loadedId, lang])
+
+  const onEdited = (save: SaveSummary) => {
+    setLoaded((l) => (l ? { ...l, save } : l))
+    setChanges((c) => c + 1)
+    setBoxVersion((v) => v + 1)
+    setToast(t('saved'))
+  }
 
   const changeLang = (next: Lang) => {
     setLang(next)
@@ -233,6 +277,10 @@ export default function App() {
                 fileName={loaded.fileName}
                 onAnother={pickFile}
                 onDownloadOriginal={downloadOriginal}
+                onDownloadSave={() => setExporting(true)}
+                onEditTrainer={() => setEditingTrainer(true)}
+                onEditPokemon={setEditing}
+                pc={ready && <BoxBrowser engine={ready} save={loaded.save} version={boxVersion} onOpen={setEditing} />}
               />
               {engine.status === 'ready' && (
                 <p className="metrics">
@@ -251,6 +299,39 @@ export default function App() {
           </p>
           <p className="muted">{t('footer')}</p>
         </footer>
+
+        {ready && loaded && editing && lists && (
+          <PokemonEditor
+            key={`${editing.kind}-${editing.box}-${editing.slot}`}
+            engine={ready}
+            at={editing}
+            lists={lists}
+            onClose={() => setEditing(null)}
+            onSaved={onEdited}
+          />
+        )}
+        {ready && loaded && editingTrainer && (
+          <TrainerEditor engine={ready} save={loaded.save} onClose={() => setEditingTrainer(false)} onSaved={onEdited} />
+        )}
+        {ready && loaded && exporting && (
+          <ExportDialog engine={ready} fileName={loaded.fileName} onClose={() => setExporting(false)} onDone={() => setChanges(0)} />
+        )}
+
+        {loaded && changes > 0 && !exporting && (
+          <div className="savebar" role="status">
+            <span className="savebar__dot" aria-hidden="true" />
+            <span className="savebar__text">{t(changes === 1 ? 'changes' : 'changesMany', { n: changes })}</span>
+            <button type="button" className="btn btn--red btn--sm" onClick={() => setExporting(true)}>
+              <Icon name="download" /> {t('downloadSave')}
+            </button>
+          </div>
+        )}
+
+        {toast && (
+          <p className="dialog dialog--float" role="status">
+            {toast}
+          </p>
+        )}
 
         {dragging && (
           <div className="drop-overlay" aria-hidden="true">

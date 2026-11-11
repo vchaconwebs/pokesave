@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
-import type { PokemonInfo, SaveSummary } from '../types'
+import type { PokemonInfo, SaveSummary, SlotRef } from '../types'
 import { useI18n } from '../i18n'
 import { typeColor, typeInk } from '../theme'
 import { Icon, MonSprite, PokeBall, TypeBadge } from './visuals'
@@ -9,11 +9,19 @@ export function SaveView({
   fileName,
   onAnother,
   onDownloadOriginal,
+  onDownloadSave,
+  onEditTrainer,
+  onEditPokemon,
+  pc,
 }: {
   save: SaveSummary
   fileName: string
   onAnother: () => void
   onDownloadOriginal: () => void
+  onDownloadSave: () => void
+  onEditTrainer: () => void
+  onEditPokemon: (at: SlotRef) => void
+  pc?: ReactNode
 }) {
   const { t, lang } = useI18n()
   const nf = new Intl.NumberFormat(lang)
@@ -33,6 +41,9 @@ export function SaveView({
           <span className="tcard__game">
             {save.game} <b>{t('gen')} {save.generation}</b>
           </span>
+          <button type="button" className="tcard__edit" onClick={onEditTrainer}>
+            ✎ {t('edit')}
+          </button>
         </header>
 
         <div className="tcard__body">
@@ -55,6 +66,19 @@ export function SaveView({
             {tr.secretId && <Fact label={t('secretId')} value={tr.secretId} />}
           </dl>
         </div>
+
+        {tr.badges && (
+          <div className="tcard__badges" aria-label={`${t('badges')}: ${tr.badges.earned}/${tr.badges.total}`}>
+            <span className="px tcard__badges-label">
+              {t('badges')} {tr.badges.earned}/{tr.badges.total}
+            </span>
+            <span className="tcard__badge-row" aria-hidden="true">
+              {tr.badges.flags.map((on, i) => (
+                <i key={i} className={on ? 'on' : ''} style={{ ['--b' as string]: `${(i * 360) / tr.badges!.flags.length}deg` } as CSSProperties} />
+              ))}
+            </span>
+          </div>
+        )}
 
         <footer className="tcard__party" aria-hidden="true">
           {Array.from({ length: 6 }, (_, i) => (
@@ -94,18 +118,23 @@ export function SaveView({
         ) : (
           <ul className="party">
             {save.party.map((pk, i) => (
-              <MonCard key={pk.slot} pk={pk} index={i} />
+              <MonCard key={pk.slot} pk={pk} index={i} onEdit={() => onEditPokemon({ kind: 'party', box: 0, slot: pk.slot })} />
             ))}
           </ul>
         )}
       </section>
 
+      {pc}
+
       <div className="actions">
-        <button type="button" className="btn btn--red" onClick={onAnother}>
-          <Icon name="refresh" /> {t('loadAnother')}
+        <button type="button" className="btn btn--red" onClick={onDownloadSave}>
+          <Icon name="download" /> {t('downloadSave')}
         </button>
         <button type="button" className="btn" onClick={onDownloadOriginal}>
           <Icon name="download" /> {t('downloadOriginal')}
+        </button>
+        <button type="button" className="btn" onClick={onAnother}>
+          <Icon name="refresh" /> {t('loadAnother')}
         </button>
       </div>
 
@@ -142,7 +171,7 @@ function Lcd({ label, value, pct, children }: { label: string; value: string; pc
   )
 }
 
-function MonCard({ pk, index }: { pk: PokemonInfo; index: number }) {
+function MonCard({ pk, index, onEdit }: { pk: PokemonInfo; index: number; onEdit: () => void }) {
   const { t } = useI18n()
   const hpPct = pk.hpMax > 0 ? Math.max(0, Math.min(1, pk.hpCurrent / pk.hpMax)) : 1
   const hpTone = hpPct > 0.5 ? 'good' : hpPct > 0.2 ? 'mid' : 'low'
@@ -164,6 +193,9 @@ function MonCard({ pk, index }: { pk: PokemonInfo; index: number }) {
           {pk.level}
         </span>
         <MonSprite species={pk.species} name={pk.speciesName} shiny={pk.isShiny} egg={pk.isEgg} size={116} />
+        <button type="button" className="mon__edit" onClick={onEdit} aria-label={`${t('edit')} ${displayName}`}>
+          <span className="px">✎ {t('edit')}</span>
+        </button>
       </div>
 
       <div className="mon__body">
