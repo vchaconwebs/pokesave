@@ -1,0 +1,64 @@
+using PKHeX.Core;
+using PokeSave.Core;
+
+namespace PokeSave.Core.Tests;
+
+/// <summary>Editar la Pokédex en todos los juegos (salvo Leyendas: Arceus, que es de tareas).</summary>
+public class DexAllGamesTests
+{
+    public static TheoryData<GameVersion> Games => new()
+    {
+        GameVersion.RD, GameVersion.C, GameVersion.E, GameVersion.FR, GameVersion.D, GameVersion.Pt, GameVersion.HG,
+        GameVersion.W, GameVersion.B2, GameVersion.X, GameVersion.OR, GameVersion.SN, GameVersion.US, GameVersion.GP,
+        GameVersion.SW, GameVersion.BD, GameVersion.SL, GameVersion.ZA,
+    };
+
+    private static SaveSession Make(GameVersion v) => v switch
+    {
+        GameVersion.E or GameVersion.FR => SaveSession.FromSave(SaveUtil.GetSaveFile(RealFormatTests.MakeGen3(v))!),
+        GameVersion.D or GameVersion.Pt or GameVersion.HG => SaveSession.FromSave(SaveUtil.GetSaveFile(RealFormatTests.MakeGen4(v))!),
+        _ => SaveSession.FromSave(BlankSaveFile.Get(v, "TESTER", LanguageID.English)),
+    };
+
+    private static DexEntry Entry(SaveSession s, int species) => s.GetDex().Entries.First(e => e.Species == species);
+
+    [Theory]
+    [MemberData(nameof(Games))]
+    public void Visto_capturado_y_quitar(GameVersion v)
+    {
+        var s = Make(v);
+        Assert.True(s.GetDex().Editable);
+        const int pikachu = 25;
+
+        Assert.True(s.SetDex(new DexEdit([pikachu], true, true)).Ok);
+        var e = Entry(s, pikachu);
+        Assert.True(e.Seen && e.Caught, "capturado");
+
+        Assert.True(s.SetDex(new DexEdit([pikachu], true, false)).Ok);
+        e = Entry(s, pikachu);
+        Assert.True(e.Seen && !e.Caught, "solo visto");
+
+        Assert.True(s.SetDex(new DexEdit([pikachu], false, false)).Ok);
+        e = Entry(s, pikachu);
+        Assert.False(e.Seen || e.Caught, "quitado");
+    }
+
+    [Theory]
+    [MemberData(nameof(Games))]
+    public void Completar_toda_la_Pokedex(GameVersion v)
+    {
+        var s = Make(v);
+        Assert.True(s.SetDex(new DexEdit([], true, true)).Ok);
+        var dex = s.GetDex();
+        Assert.All(dex.Entries, e => Assert.True(e.Caught, $"#{e.Species} {e.Name}"));
+        Assert.NotEmpty(s.Export());
+    }
+
+    [Fact]
+    public void Leyendas_Arceus_sigue_en_solo_lectura()
+    {
+        var s = SaveSession.FromSave(BlankSaveFile.Get(GameVersion.PLA, "TESTER", LanguageID.English));
+        Assert.False(s.GetDex().Editable);
+        Assert.Equal("dex-unsupported", s.SetDex(new DexEdit([25], true, true)).Error);
+    }
+}

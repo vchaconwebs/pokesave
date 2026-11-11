@@ -113,7 +113,17 @@ public sealed partial class SaveSession
 
     // ---------- Pokédex ----------
 
-    private bool DexEditable => Save.HasPokeDex && (Save is SAV5 || Save.Generation <= 6);
+    /// <summary>
+    /// Se edita en todos los juegos salvo Leyendas: Arceus, cuya Pokédex es de tareas de
+    /// investigación (no hay "visto/capturado" como tal).
+    /// </summary>
+    private bool DexEditable => Save.HasPokeDex && Save is not SAV8LA;
+
+    /// <summary>
+    /// En Espada/Escudo la Pokédex solo tiene las especies de Galar y de los DLC que tenga la
+    /// partida; las demás (que sí pueden estar en el juego vía HOME) no se pueden registrar.
+    /// </summary>
+    private bool HasDexEntry(ushort species) => Save is not SAV8SWSH swsh || swsh.Zukan.GetEntry(species, out _);
 
     public DexView GetDex(string language = "es")
     {
@@ -124,7 +134,7 @@ public sealed partial class SaveSession
         {
             for (ushort s = 1; s <= sav.MaxSpeciesID; s++)
             {
-                if (!sav.Personal.IsSpeciesInGame(s))
+                if (!sav.Personal.IsSpeciesInGame(s) || !HasDexEntry(s))
                     continue;
                 entries.Add(new DexEntry(s, Get(strings.specieslist, s) ?? $"#{s}", Safe(() => (bool?)sav.GetSeen(s)) ?? false, Safe(() => (bool?)sav.GetCaught(s)) ?? false));
             }
@@ -196,7 +206,7 @@ public sealed partial class SaveSession
             return new EditResult(false, "dex-unsupported", null, null);
         var sav = Save;
         var species = (edit.Species is { Count: > 0 } list ? list : Enumerable.Range(1, sav.MaxSpeciesID).ToList())
-            .Where(s => s >= 1 && s <= sav.MaxSpeciesID && sav.Personal.IsSpeciesInGame((ushort)s))
+            .Where(s => s >= 1 && s <= sav.MaxSpeciesID && sav.Personal.IsSpeciesInGame((ushort)s) && HasDexEntry((ushort)s))
             .Distinct()
             .ToList();
         if (species.Count == 0)
@@ -211,29 +221,121 @@ public sealed partial class SaveSession
 
     private void SetDexFlags(ushort species, bool seen, bool caught)
     {
-        if (Save is SAV5 s5)
+        switch (Save)
         {
-            // Gen 5 guarda "visto" por sexo y variocolor y aparte lo que muestra la Pokédex.
-            var z = s5.Zukan;
-            byte gender = s5.Personal[species].Gender switch { 255 => 2, 254 => 1, _ => 0 };
-            if (seen)
-            {
-                z.SetSeen(species, gender, false, true);
-                z.SetDisplayed(species, gender, false, true);
-            }
-            else
-            {
-                z.ClearSeen(species);
-                z.ClearDisplayed(species);
-            }
-            z.SetCaught(species, caught);
-            return;
+            case SAV4 s4:
+                SetDex4(s4.Dex, species, seen, caught);
+                return;
+            case SAV5 s5:
+                SetDex5(s5, species, seen, caught);
+                return;
+            case SAV7 s7:
+                SetDexZukan(s7.Zukan, species, seen, caught, () => s7.Zukan.SetCaught(species, false));
+                return;
+            case SAV7b s7b:
+                SetDexZukan(s7b.Zukan, species, seen, caught, () => s7b.Zukan.SetCaught(species, false));
+                return;
+            case SAV8SWSH swsh:
+                SetDexZukan(swsh.Zukan, species, seen, caught, () => swsh.Zukan.SetCaught(species, false));
+                return;
+            case SAV8BS bdsp:
+                SetDexZukan(bdsp.Zukan, species, seen, caught, () => bdsp.Zukan.SetState(species, ZukanState8b.Seen));
+                return;
+            case SAV9SV sv:
+                SetDexZukan(sv.Zukan, species, seen, caught, () =>
+                {
+                    if (sv.Zukan.GetRevision() == (int)DexBlockMode9.Kitakami)
+                    {
+                        // SetAllCaught(false) de Kitakami solo quita los idiomas: hay que quitar las formas.
+                        var entry = sv.Zukan.DexKitakami.Get(species);
+                        for (byte form = 0; form < sv.Personal[species].FormCount; form++)
+                            entry.SetObtainedForm(form, false);
+                        entry.SetAllLanguageFlags(0);
+                    }
+                    else
+                        sv.Zukan.DexPaldea.SetAllCaught(species, false);
+                });
+                return;
+            case SAV9ZA za:
+                SetDexZukan(za.Zukan, species, seen, caught, () =>
+                {
+                    var entry = za.Zukan.GetEntry(species);
+                    for (byte form = 0; form < 32; form++)
+                        entry.SetIsFormCaught(form, false);
+                });
+                return;
         }
+
+        // Gen 1-3 y 6: los métodos genéricos de PKHeX funcionan.
         if (!caught)
             Save.SetCaught(species, false);
         Save.SetSeen(species, seen);
         if (caught)
             Save.SetCaught(species, true);
+    }
+
+    /// <summary>
+    /// Gen 4: el genérico no hace nada. Además de visto/capturado se guarda el sexo visto
+    /// (la Pokédex muestra el sprite del sexo que hayas visto).
+    /// </summary>
+    private static void SetDex4(Zukan4 z, ushort species, bool seen, bool caught)
+    {
+        if (!seen)
+        {
+            z.ClearSeen(species);
+            return;
+        }
+        if (!z.GetSeen(species))
+        {
+            byte gender = PersonalTable.HGSS[species].Gender switch { 255 => 2, 254 => 1, _ => 0 };
+            if (gender == 2)
+                z.SetSeenGenderNeither(species);
+            else
+                z.SetSeenGenderNewFlag(species, gender);
+            z.SetSeen(species);
+        }
+        z.SetCaught(species, caught);
+    }
+
+    /// <summary>Gen 5 guarda "visto" por sexo y variocolor y aparte lo que muestra la Pokédex.</summary>
+    private static void SetDex5(SAV5 s5, ushort species, bool seen, bool caught)
+    {
+        var z = s5.Zukan;
+        byte gender = s5.Personal[species].Gender switch { 255 => 2, 254 => 1, _ => 0 };
+        if (seen)
+        {
+            z.SetSeen(species, gender, false, true);
+            z.SetDisplayed(species, gender, false, true);
+        }
+        else
+        {
+            z.ClearSeen(species);
+            z.ClearDisplayed(species);
+        }
+        z.SetCaught(species, caught);
+    }
+
+    /// <summary>
+    /// Gen 7-9: se usa lo mismo que el "completar entrada" de PKHeX (vista y capturada en
+    /// todas sus formas, sexos e idiomas), porque cada juego guarda muchos detalles y marcar
+    /// solo un bit deja entradas a medias. "Solo visto" = completar y quitar el capturado.
+    /// </summary>
+    private static void SetDexZukan<T>(ZukanBase<T> z, ushort species, bool seen, bool caught, Action uncatch)
+        where T : SaveFile
+    {
+        if (!seen)
+        {
+            z.ClearDexEntryAll(species);
+            return;
+        }
+        if (caught)
+        {
+            z.SetDexEntryAll(species);
+            return;
+        }
+        if (!z.GetSeen(species))
+            z.SetDexEntryAll(species);
+        uncatch();
     }
 
     // ---------- Exportar un Pokémon ----------
@@ -371,10 +473,23 @@ public sealed partial class SaveSession
             pk.HeldItem = 0;
 
         // En el equipo se añade al final: no puede quedar un hueco en medio.
-        var target = at.IsParty ? at with { Slot = Math.Min(at.Slot, sav.PartyCount) } : at;
+        // En Gen 1/2 las cajas también son listas sin huecos (el juego guarda cuántos hay).
+        var target = at.IsParty ? at with { Slot = Math.Min(at.Slot, sav.PartyCount) }
+            : sav.Generation <= 2 ? at with { Slot = Math.Min(at.Slot, FirstEmptyBoxSlot(at.Box)) }
+            : at;
         Checkpoint();
         Write(target, pk);
         var fresh = Read(target);
         return new EditResult(true, null, fresh is null ? null : Detail(target, fresh, language), GetSummary(language));
+    }
+
+    private int FirstEmptyBoxSlot(int box)
+    {
+        for (int i = 0; i < Save.BoxSlotCount; i++)
+        {
+            if (Save.GetBoxSlotAtIndex(box, i).Species == 0)
+                return i;
+        }
+        return Save.BoxSlotCount - 1;
     }
 }

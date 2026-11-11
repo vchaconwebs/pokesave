@@ -198,14 +198,6 @@ public class Phase2Tests
         Assert.Equal(649, summary.Pokedex.Seen);
     }
 
-    [Fact]
-    public void Pokedex_no_editable_en_juegos_nuevos()
-    {
-        var s = SaveSession.FromSave(MakeBlank(GameVersion.SW));
-        Assert.False(s.GetDex().Editable);
-        Assert.Equal("dex-unsupported", s.SetDex(new DexEdit([25], true, true)).Error);
-    }
-
     // ---------- Exportar / importar .pk* ----------
 
     [Fact]
