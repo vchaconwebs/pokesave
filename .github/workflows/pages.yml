@@ -1,0 +1,70 @@
+# Compila el motor .NET a WebAssembly, pasa los tests y publica la web en GitHub Pages.
+# Requisito (una vez): Settings → Pages → Source: "GitHub Actions".
+name: Publicar en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Instalar wasm-tools
+        run: dotnet workload install wasm-tools
+
+      - name: Tests (.NET)
+        run: dotnet test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Dependencias web
+        working-directory: web
+        run: npm ci
+
+      - name: Compilar motor WASM
+        working-directory: web
+        run: npm run engine
+
+      - name: Comprobar tipos y lint
+        working-directory: web
+        run: npm run typecheck && npm run lint
+
+      - name: Compilar web
+        working-directory: web
+        # La web vive en https://<usuario>.github.io/<repositorio>/
+        run: npx vite build --base "/${{ github.event.repository.name }}/"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
