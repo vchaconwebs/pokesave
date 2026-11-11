@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { encountersFor, howToGet, itemName, seasonFor, type BwData, type Progress } from './assistant'
+import { assistantGame, encountersFor, fromPkhex, howToGet, itemName, seasonFor, type BwData, type PkhexGameData, type Progress } from './assistant'
 
 // Los datos reales que se publican con la web.
-const data = JSON.parse(readFileSync(resolve(__dirname, '../public/data/bw.json'), 'utf8')) as BwData
+const data: BwData = { ...JSON.parse(readFileSync(resolve(__dirname, '../public/data/bw.json'), 'utf8')), versions: ['B', 'W'], rich: true }
+const game = (g: string) => fromPkhex(JSON.parse(readFileSync(resolve(__dirname, `../public/data/games/${g}.json`), 'utf8')) as PkhexGameData)
 
 const all: Progress = { badges: 8, postgame: true }
 const start: Progress = { badges: 0, postgame: false }
@@ -132,5 +133,59 @@ describe('datos', () => {
   it('objetos de evolución en español', () => {
     expect(itemName('dusk-stone', 'es')).toBe('Piedra Noche')
     expect(itemName('dusk-stone', 'en')).toBe('Dusk Stone')
+  })
+})
+
+describe('resto de juegos (datos de PKHeX)', () => {
+  it('reconoce el juego de la partida y pregunta la versión si no se sabe', () => {
+    expect(assistantGame('SL')).toEqual({ group: 'sv', versions: ['SL', 'VL'], version: 'SL' })
+    expect(assistantGame('HGSS')?.version).toBeNull()
+    expect(assistantGame('RS')?.group).toBe('rse')
+    expect(assistantGame('BU')?.version).toBe('GN')
+    expect(assistantGame('PLA')?.versions).toEqual(['PLA'])
+  })
+
+  it('exclusivos de Escarlata y Púrpura', () => {
+    const sv = game('sv')
+    expect(howToGet(sv, 246, 'SL', all, 'spring').kind).toBe('wild') // Larvitar
+    const h = howToGet(sv, 246, 'VL', all, 'spring')
+    expect(h.kind).toBe('other-version')
+    expect(h.others).toEqual(['SL'])
+    expect(howToGet(sv, 371, 'VL', all, 'spring').kind).toBe('wild') // Bagon
+    expect(howToGet(sv, 1007, 'SL', all, 'spring').kind).toBe('wild') // Koraidon
+  })
+
+  it('exclusivos de Rojo Fuego y Verde Hoja', () => {
+    const frlg = game('frlg')
+    expect(howToGet(frlg, 23, 'FR', all, 'spring').kind).toBe('wild') // Ekans
+    expect(howToGet(frlg, 23, 'LG', all, 'spring').kind).toBe('other-version')
+  })
+
+  it('evoluciones con los datos del propio juego', () => {
+    const dppt = game('dppt')
+    const h = howToGet(dppt, 473, 'Pt', all, 'spring') // Mamoswine
+    expect(h.evolveFrom).toBe(221)
+    expect(h.evolution?.move).toMatch(/Poder Pasado/)
+    const xy = game('xy')
+    expect(howToGet(xy, 700, 'X', all, 'spring').evolveFrom).toBe(133) // Sylveon de Eevee
+    const sw = game('swsh')
+    expect(howToGet(sw, 812, 'SW', all, 'spring').evolveFrom).toBe(811) // Rillaboom
+  })
+
+  it('singulares como evento y nada sin explicar', () => {
+    for (const g of ['rby', 'gsc', 'rse', 'frlg', 'dppt', 'hgss', 'b2w2', 'xy', 'oras', 'sm', 'usum', 'lgpe', 'swsh', 'bdsp', 'pla', 'sv', 'za']) {
+      const d = game(g)
+      for (const id of Object.keys(d.species)) {
+        const kind = howToGet(d, Number(id), d.versions[0], all, 'spring').kind
+        expect(kind, `${g} #${id}`).not.toBe('unknown')
+      }
+    }
+    expect(howToGet(game('rby'), 151, 'RD', all, 'spring').kind).toBe('event') // Mew
+  })
+
+  it('sin medallas: todo lo del juego cuenta como disponible', () => {
+    const enc = encountersFor(game('hgss'), 249, 'SS', start, 'spring') // Lugia en Plata SoulSilver
+    expect(enc.length).toBeGreaterThan(0)
+    expect(enc.every((e) => e.available)).toBe(true)
   })
 })

@@ -7,9 +7,11 @@ import {
   METHOD_GROUP,
   howToGet,
   itemName,
-  loadBwData,
+  loadGameData,
   placeName,
   seasonFor,
+  versionName,
+  type AssistantGame,
   type BwData,
   type BwEvolution,
   type Encounter,
@@ -19,7 +21,8 @@ import {
 } from '../assistant'
 import { PokeBall } from './visuals'
 
-type Scope = 'unova' | 'national'
+/** Pokédex que se usa: la clave de una regional (unova, paldea…) o 'national'. */
+type Scope = string
 type View = 'pokemon' | 'place'
 type Group = 'all' | 'grass' | 'water' | 'fishing' | 'special'
 
@@ -49,11 +52,18 @@ interface Missing {
   how: How
 }
 
-export function AssistantPanel({ engine, save, version, dexVersion }: { engine: Engine; save: SaveSummary; version: Version; dexVersion: number }) {
+export function AssistantPanel({ engine, save, game, dexVersion }: { engine: Engine; save: SaveSummary; game: AssistantGame; dexVersion: number }) {
   const { t, lang } = useI18n()
   const [data, setData] = useState<BwData | null>(null)
   const [failed, setFailed] = useState(false)
-  const [scope, setScope] = useState<Scope>('unova')
+  // Si la partida no dice qué versión es (Rubí o Zafiro…), se pregunta y se recuerda.
+  const versionKey = `pokesave.version.${game.group}`
+  const [chosenVersion, setChosenVersion] = useState<Version>(() => {
+    const saved = store.get(versionKey)
+    return saved && game.versions.includes(saved) ? saved : game.versions[0]
+  })
+  const version = game.version ?? chosenVersion
+  const [scope, setScope] = useState<Scope>('regional')
   const [view, setView] = useState<View>('pokemon')
   const [group, setGroup] = useState<Group>('all')
   const [onlyNow, setOnlyNow] = useState(true)
@@ -62,24 +72,28 @@ export function AssistantPanel({ engine, save, version, dexVersion }: { engine: 
   const [query, setQuery] = useState('')
 
   useEffect(() => {
-    loadBwData().then(setData, () => setFailed(true))
-  }, [])
+    setData(null)
+    setFailed(false)
+    loadGameData(game.group).then(setData, () => setFailed(true))
+  }, [game.group])
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const dex = useMemo(() => engine.dex(lang), [engine, lang, dexVersion])
   const badges = save.trainer.badges?.earned ?? 0
   const progress = useMemo(() => ({ badges, postgame }), [badges, postgame])
 
+  // La primera regional del juego (Teselia, Paldea…) o la Nacional si no hay.
+  const regions = dex?.regions ?? []
+  const region = scope === 'national' ? null : (regions.find((r) => r.key === scope) ?? regions[0] ?? null)
+
   const missing = useMemo<Missing[]>(() => {
     if (!data || !dex) return []
-    return dex.entries
-      .filter((e) => !e.caught && (scope === 'national' || (e.species >= 494 && e.species <= 649)))
-      .map((entry) => ({
-        entry,
-        number: scope === 'unova' ? entry.species - 494 : entry.species,
-        how: howToGet(data, entry.species, version, progress, season),
-      }))
-  }, [data, dex, scope, version, progress, season])
+    const byId = new Map(dex.entries.map((e) => [e.species, e]))
+    const list = region ? region.entries.map((r) => ({ entry: byId.get(r.species), number: r.number })) : dex.entries.map((e) => ({ entry: e, number: e.species }))
+    return list
+      .filter((x): x is { entry: DexEntry; number: number } => !!x.entry && !x.entry.caught)
+      .map(({ entry, number }) => ({ entry, number, how: howToGet(data, entry.species, version, progress, season) }))
+  }, [data, dex, region, version, progress, season])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -102,9 +116,9 @@ export function AssistantPanel({ engine, save, version, dexVersion }: { engine: 
     )
   }
 
-  const total = scope === 'unova' ? 156 : dex.entries.length
+  const total = region ? region.entries.length : dex.entries.length
   const canNow = missing.filter((m) => m.how.available).length
-  const other = version === 'W' ? t('asBlack') : t('asWhite')
+  const rich = data.rich
 
   return (
     <section className="assist" aria-label={t('navAssistant')}>
@@ -117,9 +131,28 @@ export function AssistantPanel({ engine, save, version, dexVersion }: { engine: 
       </div>
 
       <div className="assist__controls">
+        {game.version === null && game.versions.length > 1 && (
+          <div className="chips" role="group" aria-label={t('asWhichVersion')}>
+            <span className="field__label">{t('asWhichVersion')}</span>
+            {game.versions.map((v) => (
+              <Chip
+                key={v}
+                on={version === v}
+                onClick={() => {
+                  setChosenVersion(v)
+                  store.set(versionKey, v)
+                }}
+                label={versionName(v, lang)}
+              />
+            ))}
+          </div>
+        )}
+
         <div className="chips" role="group" aria-label={t('navDex')}>
-          <Chip on={scope === 'unova'} onClick={() => setScope('unova')} label={t('dex_unova')} />
-          <Chip on={scope === 'national'} onClick={() => setScope('national')} label={t('dexNational')} />
+          {regions.map((r) => (
+            <Chip key={r.key} on={region?.key === r.key} onClick={() => setScope(r.key)} label={t(`dex_${r.key}` as Key) ?? r.key} />
+          ))}
+          <Chip on={!region} onClick={() => setScope('national')} label={t('dexNational')} />
           <span className="assist__sep" aria-hidden="true" />
           <Chip on={view === 'pokemon'} onClick={() => setView('pokemon')} label={t('asByPokemon')} />
           <Chip on={view === 'place'} onClick={() => setView('place')} label={t('asByPlace')} />
@@ -129,8 +162,9 @@ export function AssistantPanel({ engine, save, version, dexVersion }: { engine: 
           <label className="switch">
             <input type="checkbox" checked={onlyNow} onChange={(e) => setOnlyNow(e.target.checked)} />
             <span className="switch__track" aria-hidden="true" />
-            {t('asOnlyNow')}
+            {rich ? t('asOnlyNow') : t('asOnlyMine', { v: versionName(version, lang) })}
           </label>
+          {rich && (
           <label className="switch switch--gold">
             <input
               type="checkbox"
@@ -143,14 +177,17 @@ export function AssistantPanel({ engine, save, version, dexVersion }: { engine: 
             <span className="switch__track" aria-hidden="true" />
             {t('asPostgame')}
           </label>
+          )}
         </div>
 
-        <div className="chips" role="group" aria-label={t('asSeason')}>
-          <span className="field__label">{t('asSeason')}</span>
-          {SEASONS.map((s) => (
-            <Chip key={s} on={season === s} onClick={() => setSeason(s)} label={`${SEASON_ICON[s]} ${t(`season_${s}` as Key)}`} />
-          ))}
-        </div>
+        {rich && (
+          <div className="chips" role="group" aria-label={t('asSeason')}>
+            <span className="field__label">{t('asSeason')}</span>
+            {SEASONS.map((s) => (
+              <Chip key={s} on={season === s} onClick={() => setSeason(s)} label={`${SEASON_ICON[s]} ${t(`season_${s}` as Key)}`} />
+            ))}
+          </div>
+        )}
 
         <div className="chips" role="group" aria-label={t('asMethod')}>
           {(['all', 'grass', 'water', 'fishing', 'special'] as Group[]).map((g) => (
@@ -159,7 +196,7 @@ export function AssistantPanel({ engine, save, version, dexVersion }: { engine: 
         </div>
 
         <input className="input" type="search" placeholder={t('dexSearch')} value={query} onChange={(e) => setQuery(e.target.value)} />
-        <p className="muted assist__note">{t('asProgressNote', { n: badges })}</p>
+        <p className="muted assist__note">{rich ? t('asProgressNote', { n: badges }) : t('asNoProgressNote')}</p>
       </div>
 
       {shown.length === 0 ? (
@@ -167,14 +204,14 @@ export function AssistantPanel({ engine, save, version, dexVersion }: { engine: 
       ) : view === 'pokemon' ? (
         <ul className="assist__list">
           {shown.map((m) => (
-            <MissingCard key={m.entry.species} m={m} dex={dex.entries} other={other} season={season} onlyNow={onlyNow} />
+            <MissingCard key={m.entry.species} m={m} dex={dex.entries} rich={rich} season={season} onlyNow={onlyNow} />
           ))}
         </ul>
       ) : (
         <PlaceView items={shown} onlyNow={onlyNow} group={group} />
       )}
 
-      <p className="muted assist__source">{t('asSource')}</p>
+      <p className="muted assist__source">{rich ? t('asSource') : t('asSourcePkhex')}</p>
     </section>
   )
 }
@@ -189,9 +226,10 @@ function Chip({ on, onClick, label }: { on: boolean; onClick: () => void; label:
   )
 }
 
-function MissingCard({ m, dex, other, season, onlyNow }: { m: Missing; dex: DexEntry[]; other: string; season: Season; onlyNow: boolean }) {
+function MissingCard({ m, dex, rich, season, onlyNow }: { m: Missing; dex: DexEntry[]; rich: boolean; season: Season; onlyNow: boolean }) {
   const { t, lang } = useI18n()
   const { entry, how } = m
+  const other = (how.others ?? []).map((v) => versionName(v, lang)).join(' / ')
   const url = spriteStillUrl(entry.species, false)
   const encs = (onlyNow ? how.encounters.filter((e) => e.available) : how.encounters).slice(0, 4)
   const preName = how.evolveFrom ? (dex.find((d) => d.species === how.evolveFrom)?.name ?? `#${how.evolveFrom}`) : null
@@ -204,7 +242,11 @@ function MissingCard({ m, dex, other, season, onlyNow }: { m: Missing; dex: DexE
           <span className="px assist-card__n">{String(m.number).padStart(3, '0')}</span>
           <h4>{entry.name}</h4>
           <span className={`assist-tag assist-tag--${how.kind}`}>
-            {how.kind === 'other-version' ? t('asOnlyIn', { v: other }) : t(`asKind_${how.kind}` as Key)}
+            {how.kind === 'other-version'
+              ? t('asOnlyIn', { v: other })
+              : how.kind === 'wild' && how.encounters.every((e) => (METHOD_GROUP[e.method] ?? 'special') === 'special')
+                ? t('asKind_special')
+                : t(`asKind_${how.kind}` as Key)}
           </span>
           {entry.seen && <span className="assist-tag assist-tag--seen">{t('dexState_seen')}</span>}
         </div>
@@ -227,7 +269,7 @@ function MissingCard({ m, dex, other, season, onlyNow }: { m: Missing; dex: DexE
         </p>
       )}
       {how.kind === 'other-version' && <p className="muted">{t('asTradeOther', { v: other })}</p>}
-      {how.kind === 'transfer' && <p className="muted">{t('asTransfer')}</p>}
+      {how.kind === 'transfer' && <p className="muted">{rich ? t('asTransfer') : t('asTransferAny')}</p>}
       {how.kind === 'event' && <p className="muted">{t('asEvent')}</p>}
     </li>
   )
@@ -239,9 +281,10 @@ function EncounterRow({ e, season }: { e: Encounter; season: Season }) {
   const reason = e.season && e.season !== season ? `${SEASON_ICON[e.season]} ${t(`season_${e.season}` as Key)}` : e.needs >= 9 ? t('asAfterLeague') : t('asNeedsBadges', { n: e.needs })
   return (
     <li className={`assist-enc__row${lock ? ' is-locked' : ''}`} style={{ ['--g' as string]: groupColor(e.method) } as CSSProperties}>
-      <span className="assist-enc__method">{t(`method_${e.method}` as Key)}</span>
+      <span className="assist-enc__method">{methodName(e.method, t)}</span>
       <span className="assist-enc__place">{placeName(e.location, lang)}</span>
       {e.note && <span className="assist-enc__note">{t(`note_${e.note}` as Key) ?? e.note}</span>}
+      {e.form && <span className="assist-enc__note">{itemName(e.form, lang)}</span>}
       <span className="assist-enc__meta">
         {t('level')}
         {e.min === e.max ? e.min : `${e.min}–${e.max}`}
@@ -282,11 +325,11 @@ function PlaceView({ items, onlyNow, group }: { items: Missing[]; onlyNow: boole
             {p.mons.map(({ m, e }) => {
               const url = spriteStillUrl(m.entry.species, false)
               return (
-                <li key={m.entry.species} className={e.available ? '' : 'is-locked'} title={`${t(`method_${e.method}` as Key)} · ${t('level')}${e.min}–${e.max}`}>
+                <li key={m.entry.species} className={e.available ? '' : 'is-locked'} title={`${methodName(e.method, t)} · ${t('level')}${e.min}–${e.max}`}>
                   {url && <img src={url} alt="" loading="lazy" referrerPolicy="no-referrer" />}
                   <span>{m.entry.name}</span>
                   <small>
-                    {t(`method_${e.method}` as Key)}
+                    {methodName(e.method, t)}
                     {e.chance > 0 && e.chance < 100 ? ` · ${e.chance}%` : ''}
                   </small>
                 </li>
@@ -297,6 +340,13 @@ function PlaceView({ items, onlyNow, group }: { items: Missing[]; onlyNow: boole
       ))}
     </ul>
   )
+}
+
+/** Nombre del método; las teraincursiones llevan estrellas (tera-5 → "Teraincursión 5★"). */
+function methodName(method: string, t: (k: Key, v?: Record<string, string | number>) => string) {
+  const tera = /^tera-(\d)$/.exec(method)
+  if (tera) return t('method_tera', { n: tera[1] })
+  return t(`method_${method}` as Key) ?? method
 }
 
 function groupColor(method: string) {
@@ -321,7 +371,8 @@ function evolutionText(evo: BwEvolution | undefined, dex: DexEntry[], t: (k: Key
     parts.push(t('evoOther'))
   }
   if (evo.held) parts.push(t('evoHeld', { item: itemName(evo.held, lang) }))
-  if (evo.move) parts.push(t('evoMove', { move: evo.move.replace(/-/g, ' ') }))
+  if (evo.move) parts.push(t('evoMove', { move: evo.move.includes('|') ? itemName(evo.move, lang) : evo.move.replace(/-/g, ' ') }))
+  if (evo.with && evo.t !== 'trade') parts.push(t('evoWith', { name: dex.find((d) => d.species === evo.with)?.name ?? `#${evo.with}` }))
   if (evo.time) parts.push(t(evo.time === 'night' ? 'evoNight' : 'evoDay'))
   return parts.join(', ')
 }

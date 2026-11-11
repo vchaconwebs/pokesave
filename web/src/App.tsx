@@ -5,7 +5,7 @@ import type { GameLists, SaveSummary, SlotRef } from './types'
 import { SaveView, type Section } from './components/SaveView'
 import { BagPanel, DexPanel, ImportDialog } from './components/Phase2Views'
 import { AssistantPanel } from './components/AssistantPanel'
-import { assistantVersion } from './assistant'
+import { assistantGame } from './assistant'
 import { PokemonEditor } from './components/PokemonEditor'
 import { BoxBrowser, ExportDialog, TrainerEditor } from './components/Panels'
 import { Icon, Logo, PokeBall } from './components/visuals'
@@ -326,8 +326,8 @@ export default function App() {
                 dex={ready && <DexPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
                 assistant={
                   ready &&
-                  assistantVersion(loaded.save.gameId) && (
-                    <AssistantPanel engine={ready} save={loaded.save} version={assistantVersion(loaded.save.gameId)!} dexVersion={boxVersion} />
+                  assistantGame(loaded.save.gameId) && (
+                    <AssistantPanel engine={ready} save={loaded.save} game={assistantGame(loaded.save.gameId)!} dexVersion={boxVersion} />
                   )
                 }
               />

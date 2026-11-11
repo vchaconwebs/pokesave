@@ -23,7 +23,11 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
   qué te falta (Teselia o Nacional), dónde sale en tu versión (lugar, método, niveles,
   probabilidad, estación), evoluciones e intercambios, exclusivos de la otra versión, eventos y
   Pokétransfer. Filtros por método y "solo lo que puedo conseguir ya" según medallas y Liga.
-- Siguiente: Fase 4 (buscador de objetos y MT). Proponer un plan antes.
+- **Todos los juegos (rama `fase-3b-juegos`):** Gen 1-4 probadas con partidas de formato real,
+  Pokédex editable de Gen 1 a 9 (menos Leyendas: Arceus), Pokédex regionales de todos los
+  juegos y asistente para los 18 grupos de juegos (Blanco/Negro con medallas y estaciones; el
+  resto con los datos de PKHeX).
+- Siguiente: Fase 4 (buscador de objetos y MT).
 
 ## Estructura
 
@@ -174,6 +178,37 @@ cd web && npm run typecheck && npm run lint && npm test
   fijos la Liga salvo Zekrom/Reshiram en el Castillo de N. Estación según el mes (ene
   primavera, feb verano, mar otoño, abr invierno…). Los singulares y Zorua/Zoroark son evento.
 - No sabemos leer de la partida si se ha terminado la Liga: lo marca el usuario (se recuerda).
+
+## Decisiones de "todos los juegos"
+
+- **Gen 1-4 con formato real** (`RealFormatTests`): las partidas en blanco de PKHeX no sirven
+  (en Gen 3/4 ni se pueden escribir; en Gen 1/2 no se reconocen). Se fabrican con la misma
+  estructura que una partida de verdad (sectores con ID, firma 0x08012025 y contador en Gen 3;
+  pie de bloque con tamaño y magia 0x20060623 en Gen 4; caja actual "0 + 0xFF" en Gen 1/2) y se
+  prueba detectar → editar → exportar → reabrir con checksums válidos, mochila, Pokédex e
+  importar. En Gen 3 el nombre del entrenador vacío debe ir relleno de 0xFF o PKHeX la toma por
+  japonesa. Con `POKESAVE_DUMP=<carpeta>` el test `DumpSyntheticSaves` las guarda para probar a
+  mano. **Falta probarlas en un emulador.**
+- **Gen 1/2**: las cajas son listas sin huecos; importar en una caja va al primer hueco libre.
+- **Pokédex por juego** (`SetDexFlags`): Gen 4 usa `Zukan4` (el genérico no hace nada) con el
+  sexo visto; Gen 5 `Zukan5`; Gen 7-9 el "completar entrada" de PKHeX (`SetDexEntryAll`) y para
+  "solo visto" se quita lo capturado a mano en cada juego. En SwSh solo cuentan las especies con
+  entrada en la partida (sin los DLC no salen). Leyendas: Arceus queda en solo lectura.
+- **Pokédex regionales**: `tools/build-regional-dex.mjs` genera `RegionalDexData.cs` desde
+  PokéAPI (revisado contra Bulbapedia). Espada/Escudo usa los índices de PKHeX; en DBPR,
+  Leyendas, SV y Z-A los de PKHeX no cuadraban (faltaban especies o formas).
+- **Asistente en todos los juegos**: `tools/PokeSave.DataBuilder` (consola .NET) lee por
+  reflexión las tablas de encuentros internas de PKHeX (`Encounters1`…`Encounters9a`) y
+  escribe `web/public/data/games/<grupo>.json`: lugares en español e inglés (los nombres de
+  PKHeX), método, niveles, versión, forma, y las evoluciones del propio juego. Se ejecuta con
+  `dotnet run --project tools/PokeSave.DataBuilder` al cambiar de versión de PKHeX.
+  - Se descartan eventos, Pokémon GO, Mundo Sueño, discos de bonificación y Radar Sueño.
+  - En SV PKHeX junta las dos versiones en los salvajes (Círculo Unión): los exclusivos van a
+    mano en `ApplyExclusivesSV` (lista de thonky.com).
+  - Sin medallas ni estaciones fuera de Blanco/Negro: "solo lo que puedo conseguir ya" pasa a
+    "solo lo que sale en tu versión". Si la partida no dice la versión (Rubí/Zafiro, DP, HGSS,
+    Gen 1/2…), se pregunta y se recuerda.
+  - Blanco/Negro sigue con `bw.json` (más rico: medallas, estaciones, probabilidades).
 
 ## Mediciones de la Fase 0
 

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Genera los datos del asistente (web/public/data/games/*.json) a partir de las tablas
+       de encuentros de PKHeX.Core. Solo se ejecuta en el PC, no va en la web. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PKHeX.Core" Version="26.10.18" />
+  </ItemGroup>
+
+</Project>
