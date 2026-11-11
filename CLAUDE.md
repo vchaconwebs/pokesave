@@ -56,6 +56,8 @@ npm run build      # web estática en web/dist
 a `main`. Hay que activar una vez **Settings → Pages → Source: GitHub Actions**. La web queda
 en `https://<usuario>.github.io/<repositorio>/` (la base se pasa con `vite build --base`).
 
+Para relanzar el despliegue a mano: `gh workflow run pages.yml -R vchaconwebs/pokesave --ref main`.
+
 GitHub Pages no sirve los `.br`/`.gz` precomprimidos, así que `engine.ts` pide él mismo los
 `.gz` y los descomprime con `DecompressionStream` (~5,4 MB en lugar de ~20 MB). Si falla, usa
 la URL normal. En local, con Git Bash, usar `MSYS_NO_PATHCONV=1` al pasar `--base /x/`.
