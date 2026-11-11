@@ -15,6 +15,8 @@ export interface BwLocation {
   es: string
   /** Medallas para llegar (aprox.); 9 = después de la Liga. */
   badges: number
+  /** Número de lugar de PKHeX (datos de PKHeX): sección de mapa en Gen 3, landmark en Gen 2. */
+  id?: number
 }
 
 /** [lugar, método, nivel mín., nivel máx., probabilidad %, versiones (1 Negro, 2 Blanco), condición]. */
@@ -393,7 +395,7 @@ export interface PkhexEvolution {
 export interface PkhexGameData {
   Versions: Version[]
   Methods: string[]
-  Locations: { Es: string; En: string }[]
+  Locations: { Es: string; En: string; Id?: number }[]
   Species: Record<
     string,
     {
@@ -453,7 +455,7 @@ export function fromPkhex(d: PkhexGameData): BwData {
   }
   return {
     version: 1,
-    locations: d.Locations.map((l, i) => ({ key: String(i), es: l.Es, en: l.En, badges: 0 })),
+    locations: d.Locations.map((l, i) => ({ key: String(i), es: l.Es, en: l.En, badges: 0, id: l.Id })),
     species,
     versions: d.Versions,
     rich: false,

@@ -80,7 +80,7 @@ GameData Build(Group g)
         if (!locIndex.TryGetValue(key, out var i))
         {
             locIndex[key] = i = locations.Count;
-            locations.Add(new LocationName(nameEs, nameEn));
+            locations.Add(new LocationName(nameEs, nameEn, int.TryParse(key, out var id) ? id : null));
         }
         return i;
     }
@@ -388,7 +388,7 @@ sealed record Group(string Key, byte Gen, GameVersion[] Versions, string[] Table
     };
 }
 
-sealed record LocationName(string Es, string En);
+sealed record LocationName(string Es, string En, int? Id = null);
 
 sealed record EvoInfo(ushort From, string T, byte? Lvl, string? Item, string? Move, int? With);
 

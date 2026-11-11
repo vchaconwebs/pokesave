@@ -31,6 +31,11 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
   objetos del juego con cuántos tienes (mochila + PC), qué movimiento enseña cada MT/MO/DT (de
   Rojo a Z-A) y, en Esmeralda, Rubí/Zafiro y Rojo Fuego/Verde Hoja, dónde está cada objeto
   (suelo, oculto, regalo, tienda) y si ya lo has cogido según los flags de la partida.
+  Gen 2 (Oro/Plata/Cristal) añadida después.
+- **Fase 5 (mapas interactivos): hecha para Gen 2 y 3.** Sección "Mapa" en Oro/Plata/Cristal
+  (Johto y Kanto), Rubí/Zafiro/Esmeralda (Hoenn) y Rojo Fuego/Verde Hoja (Kanto e islas Sete):
+  mapa propio en SVG con cada lugar en su sitio; el color dice cuánto te falta (objetos sin
+  coger + Pokémon sin capturar de tu versión) y al tocar un lugar se ve el detalle.
 
 ## Estructura
 
@@ -235,6 +240,17 @@ cd web && npm run typecheck && npm run lint && npm test
   de dentro de `MACRO … ENDM`), lugar = landmark del mapa (`gen2-locations.json`).
 - Resto de juegos: sin datos de dónde está cada objeto (no hay decompilación con flags). Gen 4
   (pokeplatinum, pokeheartgold) y Gen 1 (pokered, con objetos "missable") son los candidatos.
+
+## Decisiones de la Fase 5
+
+- **Sin imágenes oficiales**: el mapa lo dibuja la web (SVG) con la posición de cada lugar que
+  traen las decompilaciones de pret (`node tools/build-region-maps.mjs` →
+  `web/public/data/maps/*.json`): rectángulos de `region_map_sections.json` (Hoenn), cuadrícula
+  de `region_map_layout_*.h` (Kanto y Sete de FRLG) y puntos de `landmarks.asm` (Johto y Kanto
+  de GSC). Por eso no hace falta Leaflet: es una cuadrícula pequeña.
+- El número de cada casilla es el de PKHeX (sección en Gen 3, landmark en Gen 2): el
+  DataBuilder guarda ese número (`Locations[].Id`) para cruzar los encuentros del asistente.
+- Resto de juegos: no hay coordenadas libres de cada lugar; haría falta dibujarlas a mano.
 
 ## Mediciones de la Fase 0
 

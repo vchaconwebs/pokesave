@@ -6,6 +6,8 @@ import { SaveView, type Section } from './components/SaveView'
 import { BagPanel, DexPanel, ImportDialog } from './components/Phase2Views'
 import { AssistantPanel } from './components/AssistantPanel'
 import { ItemFinderPanel } from './components/ItemFinderPanel'
+import { MapPanel } from './components/MapPanel'
+import { regionMapsFor } from './regionMap'
 import { assistantGame } from './assistant'
 import { PokemonEditor } from './components/PokemonEditor'
 import { BoxBrowser, ExportDialog, TrainerEditor } from './components/Panels'
@@ -326,6 +328,12 @@ export default function App() {
                 bag={ready && <BagPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
                 dex={ready && <DexPanel engine={ready} version={boxVersion} onSaved={(s) => onEdited(s)} />}
                 items={ready && <ItemFinderPanel engine={ready} gameId={loaded.save.gameId} version={boxVersion} />}
+                map={
+                  ready &&
+                  regionMapsFor(loaded.save.gameId).length > 0 && (
+                    <MapPanel engine={ready} gameId={loaded.save.gameId} game={assistantGame(loaded.save.gameId)} version={boxVersion} />
+                  )
+                }
                 assistant={
                   ready &&
                   assistantGame(loaded.save.gameId) && (
