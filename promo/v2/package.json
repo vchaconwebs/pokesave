@@ -1,0 +1,21 @@
+{
+  "name": "pokesave-promo-v2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render PokeSave out/pokesave-tiktok-v2.mp4 --codec h264 --crf 17 --concurrency 6"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.543",
+    "@remotion/motion-blur": "4.0.543",
+    "@remotion/noise": "4.0.543",
+    "@remotion/transitions": "4.0.543",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.543"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  }
+}
