@@ -1,43 +1,164 @@
 {
   "fps": 30,
-  "bpm": 120,
-  "beat": 15,
-  "transition": 15,
+  "bpm": 90,
+  "beat": 20,
+  "transition": 20,
   "scenes": [
-    { "id": "hook", "beats": 7 },
-    { "id": "games", "beats": 6 },
-    { "id": "upload", "beats": 5 },
-    { "id": "team", "beats": 6 },
-    { "id": "editor", "beats": 9 },
-    { "id": "bag", "beats": 6 },
-    { "id": "dex", "beats": 6 },
-    { "id": "assistant", "beats": 6 },
-    { "id": "share", "beats": 5 },
-    { "id": "ds", "beats": 10 },
-    { "id": "outro", "beats": 8 }
+    {
+      "id": "hook",
+      "beats": 7
+    },
+    {
+      "id": "games",
+      "beats": 6
+    },
+    {
+      "id": "upload",
+      "beats": 5
+    },
+    {
+      "id": "team",
+      "beats": 7
+    },
+    {
+      "id": "editor",
+      "beats": 9
+    },
+    {
+      "id": "bag",
+      "beats": 7
+    },
+    {
+      "id": "dex",
+      "beats": 6
+    },
+    {
+      "id": "assistant",
+      "beats": 7
+    },
+    {
+      "id": "share",
+      "beats": 5
+    },
+    {
+      "id": "ds",
+      "beats": 11
+    },
+    {
+      "id": "outro",
+      "beats": 9
+    }
   ],
   "hits": [
-    { "scene": "hook", "beat": 0, "sfx": "impact" },
-    { "scene": "hook", "beat": 1, "sfx": "impact" },
-    { "scene": "hook", "beat": 2, "sfx": "impact" },
-    { "scene": "hook", "beat": 3.5, "sfx": "boom" },
-    { "scene": "games", "beat": 4, "sfx": "ding" },
-    { "scene": "upload", "beat": 1.5, "sfx": "boom" },
-    { "scene": "upload", "beat": 2, "sfx": "ding" },
-    { "scene": "team", "beat": 4.5, "sfx": "pop" },
-    { "scene": "editor", "beat": 3, "sfx": "ding" },
-    { "scene": "editor", "beat": 4.5, "sfx": "shiny" },
-    { "scene": "bag", "beat": 3, "sfx": "ding" },
-    { "scene": "dex", "beat": 4, "sfx": "boom" },
-    { "scene": "dex", "beat": 4, "sfx": "shiny" },
-    { "scene": "assistant", "beat": 1, "sfx": "pop" },
-    { "scene": "assistant", "beat": 1.75, "sfx": "pop" },
-    { "scene": "assistant", "beat": 2.5, "sfx": "pop" },
-    { "scene": "share", "beat": 2.5, "sfx": "pop" },
-    { "scene": "ds", "beat": 5, "sfx": "pop" },
-    { "scene": "ds", "beat": 7, "sfx": "boom" },
-    { "scene": "ds", "beat": 7, "sfx": "ding" },
-    { "scene": "outro", "beat": 0.5, "sfx": "boom" },
-    { "scene": "outro", "beat": 4, "sfx": "shiny" }
+    {
+      "scene": "hook",
+      "beat": 0,
+      "sfx": "impact"
+    },
+    {
+      "scene": "hook",
+      "beat": 1,
+      "sfx": "impact"
+    },
+    {
+      "scene": "hook",
+      "beat": 2,
+      "sfx": "impact"
+    },
+    {
+      "scene": "hook",
+      "beat": 3.5,
+      "sfx": "boom"
+    },
+    {
+      "scene": "games",
+      "beat": 4,
+      "sfx": "ding"
+    },
+    {
+      "scene": "upload",
+      "beat": 1.5,
+      "sfx": "boom"
+    },
+    {
+      "scene": "upload",
+      "beat": 2,
+      "sfx": "ding"
+    },
+    {
+      "scene": "team",
+      "beat": 4.5,
+      "sfx": "pop"
+    },
+    {
+      "scene": "editor",
+      "beat": 3,
+      "sfx": "ding"
+    },
+    {
+      "scene": "editor",
+      "beat": 4.5,
+      "sfx": "shiny"
+    },
+    {
+      "scene": "bag",
+      "beat": 3,
+      "sfx": "ding"
+    },
+    {
+      "scene": "dex",
+      "beat": 4,
+      "sfx": "boom"
+    },
+    {
+      "scene": "dex",
+      "beat": 4,
+      "sfx": "shiny"
+    },
+    {
+      "scene": "assistant",
+      "beat": 1,
+      "sfx": "pop"
+    },
+    {
+      "scene": "assistant",
+      "beat": 1.75,
+      "sfx": "pop"
+    },
+    {
+      "scene": "assistant",
+      "beat": 2.5,
+      "sfx": "pop"
+    },
+    {
+      "scene": "share",
+      "beat": 2.5,
+      "sfx": "pop"
+    },
+    {
+      "scene": "ds",
+      "beat": 5,
+      "sfx": "pop"
+    },
+    {
+      "scene": "ds",
+      "beat": 7,
+      "sfx": "boom"
+    },
+    {
+      "scene": "ds",
+      "beat": 7,
+      "sfx": "ding"
+    },
+    {
+      "scene": "outro",
+      "beat": 0.5,
+      "sfx": "boom"
+    },
+    {
+      "scene": "outro",
+      "beat": 4,
+      "sfx": "shiny"
+    }
   ]
 }

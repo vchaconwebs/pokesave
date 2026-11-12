@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "studio": "remotion studio",
-    "render": "remotion render PokeSave out/pokesave-tiktok-v2.mp4 --codec h264 --crf 17 --concurrency 6"
+    "render": "remotion render PokeSave out/pokesave-tiktok-v3.mp4 --codec h264 --crf 17 --concurrency 6"
   },
   "dependencies": {
     "@remotion/cli": "4.0.543",

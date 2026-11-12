@@ -417,7 +417,7 @@ export function Assistant({ dur }: P) {
         {rows.map((r, i) => {
           const d = b(1) + i * Math.round(B * 0.75)
           const k = useSpringStatic(frame, d)
-          const typed = r.d.slice(0, Math.floor(clamp01((frame - d - 8) / 20) * r.d.length))
+          const typed = r.d.slice(0, Math.floor(clamp01((frame - d - 10) / 36) * r.d.length))
           return (
             <div key={r.n} style={{ position: 'absolute', left: 70, right: 70, top: 470 + i * 360, transform: `translateX(${(1 - k) * (i % 2 ? 1200 : -1200)}px) rotate(${(1 - k) * (i % 2 ? 8 : -8)}deg)` }}>
               <Card color={r.c} style={{ height: 300, display: 'flex', alignItems: 'center', gap: 20, padding: '0 30px' }}>
