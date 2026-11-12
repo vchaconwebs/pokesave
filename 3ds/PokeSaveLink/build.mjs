@@ -53,7 +53,7 @@ cpSync(join(BUILD, 'PokeSaveLink.3dsx'), join(out, 'PokeSaveLink.3dsx'))
 if (existsSync(bannertool) && existsSync(makerom)) {
   run(bannertool, ['makebanner', '-i', join(here, 'meta', 'banner.png'), '-a', join(here, 'meta', 'banner.wav'), '-o', join(BUILD, 'banner.bnr')])
   run(bannertool, ['makesmdh', '-s', 'PokeSave Link', '-l', 'PokeSave Link: edita tu partida desde el navegador', '-p', 'PokeSave', '-i', join(here, 'meta', 'icon.png'), '-o', join(BUILD, 'icon.icn')])
-  run(makerom, ['-f', 'cia', '-o', join(out, 'PokeSaveLink.cia'), '-elf', 'PokeSaveLink.elf', '-rsf', 'meta/app.rsf', '-icon', 'icon.icn', '-banner', 'banner.bnr', '-exefslogo', '-target', 't', '-major', '1', '-minor', '1', '-micro', '0'], { cwd: BUILD })
+  run(makerom, ['-f', 'cia', '-o', join(out, 'PokeSaveLink.cia'), '-elf', 'PokeSaveLink.elf', '-rsf', 'meta/app.rsf', '-icon', 'icon.icn', '-banner', 'banner.bnr', '-exefslogo', '-target', 't', '-major', '1', '-minor', '1', '-micro', '1'], { cwd: BUILD })
 } else {
   console.log('Sin makerom/bannertool en tools/3ds-bin: solo se genera el .3dsx')
 }

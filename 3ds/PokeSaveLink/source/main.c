@@ -419,7 +419,7 @@ static void handle(int s) {
 	} else if (!strcmp(url, "/api/save") && !strcmp(method, "GET")) {
 		reply(s, "200 OK", "application/octet-stream", saveData, saveSize);
 		serveStatus = 2;
-		addLog("Edita en el móvil y pulsa Guardar en la 3DS");
+		addLog("Edita en el navegador y pulsa Guardar en la 3DS");
 	} else if (!strcmp(url, "/api/save") && !strcmp(method, "POST")) {
 		char *pinHeader = findHeader((char *)req, "\nX-PokeSave-Pin:");
 		char given[8] = {0};
@@ -938,7 +938,7 @@ static void drawServe(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
 	// estado
 	rrect(10, 162, 380, 68, 12, C_NAVY2);
 	int st = serveStatus;
-	const char *msg = st == 0 ? "Esperando al móvil..." : st == 1 ? "Web abierta en el móvil" : st == 2 ? "Partida enviada: ¡a editar!" : st == 3 ? "Guardando..." : st == 4 ? "¡Partida guardada y comprobada!" : "Error al guardar";
+	const char *msg = st == 0 ? "Esperando al móvil o al PC..." : st == 1 ? "Web abierta en el navegador" : st == 2 ? "Partida enviada: ¡a editar!" : st == 3 ? "Guardando..." : st == 4 ? "¡Partida guardada y comprobada!" : "Error al guardar";
 	u32 col = st == 4 ? C_GOOD : st == 5 ? C_BAD : C_TEXT;
 	if (st == 0 || st == 3) spinner(34, 196, 10);
 	else if (st == 4) C2D_DrawCircleSolid(34, 196, 0, 12 + sinf(frameNo * 0.3f) * (frameNo - savedAt < 30 ? 3 : 0), C_GOOD), txt("✓", 34, 186, 0.6f, C_WHITE, C2D_AlignCenter);
@@ -956,7 +956,8 @@ static void drawServe(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
 		for (int y = 0; y < n; y++)
 			for (int x = 0; x < n; x++)
 				if (qrcodegen_getModule(qr, x, y)) C2D_DrawRectSolid(x0 + (x + 2) * scale, y0 + (y + 2) * scale, 0, scale, scale, C_NAVY);
-		txt("Escanéalo con la cámara del móvil", 160, y0 + size + 12, 0.48f, C_TEXT, C2D_AlignCenter);
+		txt("Escanéalo con el móvil o escribe la", 160, y0 + size + 8, 0.45f, C_TEXT, C2D_AlignCenter);
+		txt("dirección en el navegador del PC", 160, y0 + size + 24, 0.45f, C_TEXT, C2D_AlignCenter);
 	}
 	keyHint(100, 214, "START", "Salir", C_LINE);
 }

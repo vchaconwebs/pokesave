@@ -496,72 +496,75 @@ function Landing({
         <p className="lead">{t('heroBody')}</p>
       </section>
 
-      <div className={`dex dex--${lights}`}>
-        <div className="dex__top">
-          <span className="dex__lens" aria-hidden="true">
-            <span />
-          </span>
-          <span className="dex__leds" aria-hidden="true">
-            <i className="r" />
-            <i className="y" />
-            <i className="g" />
-          </span>
-          <span className="dex__status px" role="status" aria-live="polite">
-            {engine.status === 'loading' && `${t('engineLoading')} ${pct}%`}
-            {engine.status === 'ready' && t('engineReady')}
-            {engine.status === 'error' && t('engineError')}
-          </span>
+      <div className="landing__split">
+        <div className="landing__save">
+        <div className={`dex dex--${lights}`}>
+          <div className="dex__top">
+            <span className="dex__lens" aria-hidden="true">
+              <span />
+            </span>
+            <span className="dex__leds" aria-hidden="true">
+              <i className="r" />
+              <i className="y" />
+              <i className="g" />
+            </span>
+            <span className="dex__status px" role="status" aria-live="polite">
+              {engine.status === 'loading' && `${t('engineLoading')} ${pct}%`}
+              {engine.status === 'ready' && t('engineReady')}
+              {engine.status === 'error' && t('engineError')}
+            </span>
+          </div>
+
+          <div className="dex__frame">
+            <span className="dex__dots" aria-hidden="true">
+              <i />
+              <i />
+            </span>
+            <button type="button" className={`dex__screen${busy ? ' is-busy' : ''}`} onClick={onPick} disabled={busy}>
+              <span className="dex__scanlines" aria-hidden="true" />
+              {busy ? (
+                <PokeBall size={84} shake />
+              ) : (
+                <span className="dex__icon" aria-hidden="true">
+                  <Icon name="upload" />
+                </span>
+              )}
+              <span className="dex__title px">{status ?? t('dexInsert')}</span>
+              {!status && (
+                <span className="dex__sub">
+                  {t('dexDrop')} {t('dexOr')} <u>{t('dexButton')}</u>
+                </span>
+              )}
+              <span className="dex__hint px">{t('dexHint')}</span>
+              {engine.status === 'loading' && !busy && (
+                <span className="dex__progress" aria-hidden="true">
+                  <span style={{ width: `${pct}%` }} />
+                </span>
+              )}
+            </button>
+            <span className="dex__speaker" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+              <i />
+            </span>
+          </div>
+
+          <div className="dex__controls" aria-hidden="true">
+            <span className="dex__dpad" />
+            <span className="dex__pills">
+              <i />
+              <i />
+            </span>
+            <span className="dex__btn" />
+          </div>
         </div>
 
-        <div className="dex__frame">
-          <span className="dex__dots" aria-hidden="true">
-            <i />
-            <i />
-          </span>
-          <button type="button" className={`dex__screen${busy ? ' is-busy' : ''}`} onClick={onPick} disabled={busy}>
-            <span className="dex__scanlines" aria-hidden="true" />
-            {busy ? (
-              <PokeBall size={84} shake />
-            ) : (
-              <span className="dex__icon" aria-hidden="true">
-                <Icon name="upload" />
-              </span>
-            )}
-            <span className="dex__title px">{status ?? t('dexInsert')}</span>
-            {!status && (
-              <span className="dex__sub">
-                {t('dexDrop')} {t('dexOr')} <u>{t('dexButton')}</u>
-              </span>
-            )}
-            <span className="dex__hint px">{t('dexHint')}</span>
-            {engine.status === 'loading' && !busy && (
-              <span className="dex__progress" aria-hidden="true">
-                <span style={{ width: `${pct}%` }} />
-              </span>
-            )}
-          </button>
-          <span className="dex__speaker" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-          </span>
+        {error && <ErrorBox error={error} />}
+        {engine.status === 'error' && <ErrorBox error={{ key: 'errEngine' }} />}
         </div>
-
-        <div className="dex__controls" aria-hidden="true">
-          <span className="dex__dpad" />
-          <span className="dex__pills">
-            <i />
-            <i />
-          </span>
-          <span className="dex__btn" />
-        </div>
+        <App3dsSection />
       </div>
-
-      {error && <ErrorBox error={error} />}
-      {engine.status === 'error' && <ErrorBox error={{ key: 'errEngine' }} />}
-
-      <App3dsSection />
 
       <ul className="features">
         <Feature icon="lock" title={t('featPrivate')} body={t('featPrivateBody')} />

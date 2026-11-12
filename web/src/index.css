@@ -3301,3 +3301,18 @@ p {
 .app3ds__feats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
 .app3ds__feats li { background: rgb(255 255 255 / 0.06); border-radius: 14px; padding: 12px 14px; font-size: 0.95rem; }
 .app3ds__note { font-size: 0.85rem; }
+
+/* Portada: subir partida y app de 3DS en dos columnas en pantallas anchas. */
+.landing__split { display: grid; gap: 26px; }
+.landing__save { display: grid; gap: 18px; align-content: start; }
+@media (min-width: 1000px) {
+  .landing { max-width: 1140px; }
+  .landing__split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .landing__split .app3ds { margin: 0; }
+  .landing__split .app3ds { padding: 22px; gap: 16px; }
+  .landing__split .app3ds__body { grid-template-columns: 170px 1fr; gap: 18px; }
+  .landing__split .app3ds__qr { width: 170px; }
+  .landing__split .app3ds__steps { font-size: 0.95rem; line-height: 1.55; }
+  .landing__split .app3ds__feats li { font-size: 0.86rem; padding: 10px 12px; }
+  .landing__split .app3ds__feats { grid-template-columns: 1fr 1fr; }
+}
