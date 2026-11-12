@@ -41,3 +41,7 @@ web/dist-3ds/
 # Vídeo promocional (renderizado)
 promo/out/
 promo/*.mp4
+
+# Paquete para la SD de la 3DS
+3ds/sd-tarjeta/
+3ds/*.zip
