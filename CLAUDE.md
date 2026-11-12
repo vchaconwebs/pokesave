@@ -203,8 +203,10 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
 
 ## App de 3DS (PokeSave Link)
 
-- `3ds/PokeSaveLink/` (C, libctru): detecta X/Y, ROZA, SL y USUL o deja elegir cualquier `.sav`
-  de la SD con un explorador (DS con TWiLight, emuladores), copia la partida a la SD,
+- `3ds/PokeSaveLink/` (C, libctru): detecta X/Y, ROZA, SL y USUL (cartucho y digital), la
+  Consola Virtual (`sav.dat`), los cartuchos de DS de Pokémon (chip SPI, `spi.c` portado de
+  Checkpoint: los de código 'I…' llevan infrarrojos) o deja elegir cualquier `.sav` de la SD con
+  un explorador (DS con TWiLight, emuladores), copia la partida a la SD,
   sirve la web desde `sdmc:/3ds/PokeSave/web/` por wifi y expone `/api/info` y `/api/save`
   (POST con PIN). Ver su README. **Compila, pero falta probarla en una consola real.**
 - La web detecta que la sirve la consola (`link3ds.ts`: solo por http, `GET api/info`) y cambia

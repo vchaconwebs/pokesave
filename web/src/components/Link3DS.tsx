@@ -10,7 +10,7 @@ export function Link3dsBanner({ info, onOpen }: { info: Link3dsInfo; onOpen: (f:
   return (
     <div className="dialog link3ds" role="status">
       <p>
-        🎮 <b>{t('l3Connected')}</b> · {info.game === 'SD' ? info.file : info.game}
+        🎮 <b>{t('l3Connected')}</b> · {info.label ?? (info.game === 'SD' ? info.file : info.game)}
       </p>
       <button
         type="button"

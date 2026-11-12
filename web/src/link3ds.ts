@@ -9,6 +9,8 @@ export interface Link3dsInfo {
   app: string
   /** Código del juego de 3DS (X, SN…) o "SD" si es un .sav elegido en la tarjeta. */
   game: string
+  /** Nombre del juego o del archivo para enseñar ("Pokemon Blanco", "POKEMON_W.sav"…). */
+  label?: string
   /** Nombre del archivo ("main" en los juegos de 3DS). */
   file?: string
   size: number

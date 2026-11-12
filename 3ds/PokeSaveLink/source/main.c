@@ -10,12 +10,17 @@
 //  4. Al pulsar "Guardar en la 3DS" la web manda la partida con el PIN de la pantalla; la app
 //     hace otra copia de lo que había y sobrescribe la partida. Sales con START y abres el juego.
 //
-// También vale para cualquier .sav de la tarjeta SD (juegos de DS con TWiLight Menu++,
-// emuladores, copias…): "Buscar un .sav en la SD" abre un explorador de carpetas. La partida
-// se sobrescribe en el mismo archivo, con copia en sdmc:/3ds/PokeSave/backups/sd/ antes.
+// Partidas que encuentra:
+//  - Juegos de 3DS (tarjeta o digital): X/Y, ROZA, SL, USUL → archivo "main" de su partida.
+//  - Consola Virtual (Rojo/Azul/Amarillo, Oro/Plata/Cristal…): "sav.dat" de su partida.
+//  - Cartucho de DS metido en la consola (Diamante/Perla/Platino, HG/SS, Negro/Blanco y
+//    Negro 2/Blanco 2): se lee y escribe el chip de memoria del cartucho (ver spi.c).
+//  - Cualquier .sav de la SD ("Buscar un .sav en la SD"): juegos de DS con TWiLight Menu++,
+//    emuladores, copias… Se sobrescribe el mismo archivo (a través de un temporal).
+// Siempre hay copia en sdmc:/3ds/PokeSave/backups/ antes de escribir.
 //
 // API (mismo origen que la web):
-//   GET  /api/info  → {"app":"PokeSave Link","game":"X","file":"main","size":415232}
+//   GET  /api/info  → {"app":"PokeSave Link","game":"X","label":"Pokemon X","file":"main","size":415232}
 //   GET  /api/save  → la partida (bytes)
 //   POST /api/save  → cabecera X-PokeSave-Pin con el PIN; cuerpo = partida del mismo tamaño
 #include <3ds.h>
@@ -33,6 +38,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <dirent.h>
+#include "spi.h"
 
 #define PORT 8000
 #define SOC_ALIGN 0x1000
@@ -60,11 +66,32 @@ static const Game GAMES[] = {
 };
 #define GAME_COUNT (sizeof(GAMES) / sizeof(GAMES[0]))
 
-/** Partida elegida: un juego de 3DS (game) o un archivo de la SD (game == NULL, path). */
+/** De dónde sale la partida. */
+typedef enum {
+	SRC_TITLE, // archivo dentro de la partida de un juego de 3DS o de la Consola Virtual
+	SRC_NDS,   // chip de memoria del cartucho de DS
+	SRC_SD,    // archivo .sav de la tarjeta SD
+} Source;
+
+/** Juegos de DS (por las 3 primeras letras del código del cartucho) → código de PKHeX. */
+static const struct { const char *prefix, *code, *name; } DS_GAMES[] = {
+	{"ADA", "D", "Pokemon Diamante"}, {"APA", "P", "Pokemon Perla"}, {"CPU", "Pt", "Pokemon Platino"},
+	{"IPK", "HG", "Pokemon Oro HeartGold"}, {"IPG", "SS", "Pokemon Plata SoulSilver"},
+	{"IRB", "B", "Pokemon Negro"}, {"IRA", "W", "Pokemon Blanco"}, {"IRE", "B2", "Pokemon Negro 2"}, {"IRD", "W2", "Pokemon Blanco 2"},
+};
+
+/** Partida elegida. */
 typedef struct {
-	const Game *game;
+	Source kind;
+	const Game *game;   // juego de 3DS conocido (o NULL)
+	u64 id;             // título de 3DS / Consola Virtual
 	FS_MediaType media;
-	char path[384];
+	char inner[16];     // "/main" o "/sav.dat"
+	char code[8];       // código para la web: X, SN, W, VC, SD…
+	char label[64];     // lo que se enseña en pantalla
+	char path[384];     // SRC_SD
+	CardType spi;       // SRC_NDS
+	u32 spiSize;
 } Found;
 
 static const char *baseName(const char *path) {
@@ -81,7 +108,7 @@ static char pin[8];
 // ---------- Partida ----------
 
 static Result openSaveArchive(const Found *f, FS_Archive *archive) {
-	u32 path[3] = {f->media, (u32)(f->game->id & 0xFFFFFFFF), (u32)(f->game->id >> 32)};
+	u32 path[3] = {f->media, (u32)(f->id & 0xFFFFFFFF), (u32)(f->id >> 32)};
 	return FSUSER_OpenArchive(archive, ARCHIVE_USER_SAVEDATA, (FS_Path){PATH_BINARY, sizeof(path), path});
 }
 
@@ -120,13 +147,42 @@ static Result writeSdFile(const char *path, const u8 *data, u32 size) {
 	return rename(tmp, path) == 0 ? 0 : -1;
 }
 
+// ---------- Cartucho de DS ----------
+
+static Result readNds(const Found *f) {
+	free(saveData);
+	saveData = malloc(f->spiSize);
+	const u32 chunk = 0x10000; // como Checkpoint: de 64 KB en 64 KB
+	for (u32 pos = 0; pos < f->spiSize; pos += chunk) {
+		Result res = spiRead(f->spi, pos, saveData + pos, chunk);
+		if (R_FAILED(res)) return res;
+	}
+	saveSize = f->spiSize;
+	return 0;
+}
+
+/** Escribe y luego lo vuelve a leer para comprobar que el chip tiene exactamente lo enviado. */
+static Result writeNds(const Found *f, const u8 *data, u32 size) {
+	if (size != f->spiSize) return -1;
+	Result res = spiWrite(f->spi, 0, data, size);
+	if (R_FAILED(res)) return res;
+	u8 *check = malloc(0x10000);
+	for (u32 pos = 0; pos < size && R_SUCCEEDED(res); pos += 0x10000) {
+		res = spiRead(f->spi, pos, check, 0x10000);
+		if (R_SUCCEEDED(res) && memcmp(check, data + pos, 0x10000) != 0) res = -2;
+	}
+	free(check);
+	return res;
+}
+
 static Result readSave(const Found *f) {
-	if (!f->game) return readSdFile(f->path);
+	if (f->kind == SRC_SD) return readSdFile(f->path);
+	if (f->kind == SRC_NDS) return readNds(f);
 	FS_Archive archive;
 	Handle file;
 	Result res = openSaveArchive(f, &archive);
 	if (R_FAILED(res)) return res;
-	res = FSUSER_OpenFile(&file, archive, fsMakePath(PATH_ASCII, "/main"), FS_OPEN_READ, 0);
+	res = FSUSER_OpenFile(&file, archive, fsMakePath(PATH_ASCII, f->inner), FS_OPEN_READ, 0);
 	if (R_SUCCEEDED(res)) {
 		u64 size = 0;
 		FSFILE_GetSize(file, &size);
@@ -147,12 +203,13 @@ static Result readSave(const Found *f) {
 }
 
 static Result writeSave(const Found *f, const u8 *data, u32 size) {
-	if (!f->game) return writeSdFile(f->path, data, size);
+	if (f->kind == SRC_SD) return writeSdFile(f->path, data, size);
+	if (f->kind == SRC_NDS) return writeNds(f, data, size);
 	FS_Archive archive;
 	Handle file;
 	Result res = openSaveArchive(f, &archive);
 	if (R_FAILED(res)) return res;
-	res = FSUSER_OpenFile(&file, archive, fsMakePath(PATH_ASCII, "/main"), FS_OPEN_WRITE, 0);
+	res = FSUSER_OpenFile(&file, archive, fsMakePath(PATH_ASCII, f->inner), FS_OPEN_WRITE, 0);
 	if (R_SUCCEEDED(res)) {
 		u32 written = 0;
 		res = FSFILE_Write(file, &written, 0, data, size, FS_WRITE_FLUSH);
@@ -184,12 +241,13 @@ static void mkdirs(const char *path) {
  */
 static bool backup(const char *tag) {
 	char dir[160], file[400];
-	snprintf(dir, sizeof(dir), "%s/%s", BACKUP_ROOT, current->game ? current->game->code : "sd");
+	snprintf(dir, sizeof(dir), "%s/%s", BACKUP_ROOT, current->kind == SRC_SD ? "sd" : current->code);
 	mkdirs(dir);
 	time_t now = time(NULL);
 	struct tm *t = gmtime(&now);
-	if (current->game)
-		snprintf(file, sizeof(file), "%s/%04d%02d%02d-%02d%02d%02d-%s.main", dir, t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, tag);
+	const char *ext = current->kind == SRC_NDS ? "sav" : !strcmp(current->inner, "/sav.dat") ? "dat" : "main";
+	if (current->kind != SRC_SD)
+		snprintf(file, sizeof(file), "%s/%04d%02d%02d-%02d%02d%02d-%s.%s", dir, t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, tag, ext);
 	else
 		snprintf(file, sizeof(file), "%s/%.150s-%04d%02d%02d-%02d%02d%02d-%s.bak", dir, baseName(current->path), t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, tag);
 	FILE *fp = fopen(file, "wb");
@@ -338,15 +396,15 @@ static void handle(int s) {
 	if (!strcmp(url, "/api/info")) {
 		// Nombre de archivo solo con caracteres seguros para meterlo en el JSON.
 		char file[96];
-		const char *src = current->game ? "main" : baseName(current->path);
+		const char *src = current->kind == SRC_SD ? baseName(current->path) : current->kind == SRC_NDS ? "cartucho.sav" : current->inner + 1;
 		size_t j = 0;
 		for (size_t i = 0; src[i] && j < sizeof(file) - 1; i++) {
 			char c = src[i];
 			file[j++] = (c >= 32 && c < 127 && c != '"' && c != '\\') ? c : '_';
 		}
 		file[j] = 0;
-		char json[256];
-		snprintf(json, sizeof(json), "{\"app\":\"PokeSave Link\",\"game\":\"%s\",\"file\":\"%s\",\"size\":%lu}", current->game ? current->game->code : "SD", file, (unsigned long)saveSize);
+		char json[320];
+		snprintf(json, sizeof(json), "{\"app\":\"PokeSave Link\",\"game\":\"%s\",\"label\":\"%s\",\"file\":\"%s\",\"size\":%lu}", current->code, current->label, file, (unsigned long)saveSize);
 		replyText(s, "200 OK", json);
 	} else if (!strcmp(url, "/api/save") && !strcmp(method, "GET")) {
 		reply(s, "200 OK", "application/octet-stream", saveData, saveSize);
@@ -392,7 +450,8 @@ static int chooseGame(Found *found, int count) {
 			consoleClear();
 			printf("\x1b[1;1H\x1b[31mPokeSave Link\x1b[0m\n\nElige la partida:\n\n");
 			for (int i = 0; i < count; i++)
-				printf("%s %s (%s)\n", i == sel ? "\x1b[33m>" : " ", found[i].game->name, found[i].media == MEDIATYPE_GAME_CARD ? "tarjeta" : "digital");
+				printf("%s %.30s (%s)\n", i == sel ? "\x1b[33m>" : " ", found[i].label,
+				       found[i].kind == SRC_NDS ? "cartucho DS" : !strcmp(found[i].inner, "/sav.dat") ? "Consola Virtual" : found[i].media == MEDIATYPE_GAME_CARD ? "cartucho" : "digital");
 			if (count) printf("\x1b[0m\n");
 			printf("%s Buscar un .sav en la SD...\x1b[0m\n", sel == count ? "\x1b[33m>" : " ");
 			printf("   (juegos de DS con TWiLight, emuladores...)\n");
@@ -538,41 +597,125 @@ static void waitExit(void) {
 	}
 }
 
+/** ¿Esta partida tiene ese archivo dentro? (y su tamaño, para descartar lo que no es). */
+static bool titleHasFile(Found *f, const char *inner, u64 *size) {
+	FS_Archive a;
+	if (R_FAILED(openSaveArchive(f, &a))) return false;
+	Handle h;
+	bool ok = R_SUCCEEDED(FSUSER_OpenFile(&h, a, fsMakePath(PATH_ASCII, inner), FS_OPEN_READ, 0));
+	if (ok) {
+		FSFILE_GetSize(h, size);
+		FSFILE_Close(h);
+	}
+	FSUSER_CloseArchive(a);
+	return ok;
+}
+
+static int findSaves(Found *out, int max, bool pxi) {
+	int n = 0;
+	// 1. Juegos de 3DS conocidos, en cartucho y digitales.
+	for (unsigned i = 0; i < GAME_COUNT && n < max; i++) {
+		for (int m = 0; m < 2 && n < max; m++) {
+			Found f = {0};
+			f.kind = SRC_TITLE;
+			f.game = &GAMES[i];
+			f.id = GAMES[i].id;
+			f.media = m == 0 ? MEDIATYPE_GAME_CARD : MEDIATYPE_SD;
+			strcpy(f.inner, "/main");
+			u64 size = 0;
+			if (titleHasFile(&f, "/main", &size) && size > 0) {
+				snprintf(f.code, sizeof(f.code), "%s", GAMES[i].code);
+				snprintf(f.label, sizeof(f.label), "%s", GAMES[i].name);
+				out[n++] = f;
+			}
+		}
+	}
+	// 2. Consola Virtual: títulos instalados cuya partida es un "sav.dat" del tamaño de una de
+	//    Game Boy (32-64 KB). PKHeX dirá luego si es de Pokémon.
+	u32 total = 0;
+	if (R_SUCCEEDED(AM_GetTitleCount(MEDIATYPE_SD, &total)) && total > 0) {
+		u64 *ids = malloc(total * sizeof(u64));
+		u32 read = 0;
+		if (ids && R_SUCCEEDED(AM_GetTitleList(&read, MEDIATYPE_SD, total, ids))) {
+			for (u32 i = 0; i < read && n < max; i++) {
+				if ((ids[i] >> 32) != 0x00040000) continue; // solo aplicaciones
+				Found f = {0};
+				f.kind = SRC_TITLE;
+				f.id = ids[i];
+				f.media = MEDIATYPE_SD;
+				strcpy(f.inner, "/sav.dat");
+				u64 size = 0;
+				if (!titleHasFile(&f, "/sav.dat", &size) || size < 0x2000 || size > 0x20000) continue;
+				char product[16] = {0};
+				AM_GetTitleProductCode(MEDIATYPE_SD, ids[i], product);
+				strcpy(f.code, "VC");
+				snprintf(f.label, sizeof(f.label), "VC %.15s", product[0] ? product : "?");
+				out[n++] = f;
+			}
+		}
+		free(ids);
+	}
+	// 3. Cartucho de DS metido en la consola.
+	bool inserted = false;
+	FS_CardType card;
+	if (pxi && n < max && R_SUCCEEDED(FSUSER_CardSlotIsInserted(&inserted)) && inserted && R_SUCCEEDED(FSUSER_GetCardType(&card)) && card == CARD_TWL) {
+		u8 *header = malloc(0x3B4);
+		if (header && R_SUCCEEDED(FSUSER_GetLegacyRomHeader(MEDIATYPE_GAME_CARD, 0LL, header))) {
+			char gameCode[5] = {0};
+			memcpy(gameCode, header + 12, 4);
+			for (unsigned i = 0; i < sizeof(DS_GAMES) / sizeof(DS_GAMES[0]); i++) {
+				if (strncmp(gameCode, DS_GAMES[i].prefix, 3)) continue;
+				Found f = {0};
+				f.kind = SRC_NDS;
+				if (R_SUCCEEDED(spiGetCardType(&f.spi, gameCode[0] == 'I')) && spiCapacity(f.spi) == 512 * 1024) {
+					f.spiSize = 512 * 1024;
+					snprintf(f.code, sizeof(f.code), "%s", DS_GAMES[i].code);
+					snprintf(f.label, sizeof(f.label), "%s", DS_GAMES[i].name);
+					out[n++] = f;
+				} else {
+					printf("\x1b[33mCartucho %s: no se reconoce su memoria.\x1b[0m\n", gameCode);
+				}
+				break;
+			}
+		}
+		free(header);
+	}
+	return n;
+}
+
 int main(void) {
 	gfxInitDefault();
 	consoleInit(GFX_TOP, NULL);
 
-	// Qué juegos hay (se prueba a abrir su partida en la tarjeta y en la SD).
-	Found found[GAME_COUNT * 2];
-	int count = 0;
-	for (unsigned i = 0; i < GAME_COUNT; i++) {
-		for (int m = 0; m < 2; m++) {
-			Found f = {&GAMES[i], m == 0 ? MEDIATYPE_GAME_CARD : MEDIATYPE_SD};
-			FS_Archive a;
-			if (R_SUCCEEDED(openSaveArchive(&f, &a))) {
-				FSUSER_CloseArchive(a);
-				found[count++] = f;
-			}
-		}
-	}
+	printf("\x1b[31mPokeSave Link\x1b[0m\n\nBuscando partidas...\n");
+	amInit();
+	bool pxi = R_SUCCEEDED(pxiDevInit());
+	static Found found[48];
+	int count = findSaves(found, 48, pxi);
 	int sel = chooseGame(found, count);
 	if (sel < 0) {
+		if (pxi) pxiDevExit();
+		amExit();
 		gfxExit();
 		return 0;
 	}
 	static Found sdFile;
 	if (sel == count) {
-		sdFile.game = NULL;
+		memset(&sdFile, 0, sizeof(sdFile));
+		sdFile.kind = SRC_SD;
 		if (!browseSd(sdFile.path, sizeof(sdFile.path))) {
 			gfxExit();
 			return 0;
 		}
+		strcpy(sdFile.code, "SD");
+		snprintf(sdFile.label, sizeof(sdFile.label), "%.63s", baseName(sdFile.path));
 		current = &sdFile;
 	} else {
 		current = &found[sel];
 	}
 	consoleClear();
-	printf("\x1b[31mPokeSave Link\x1b[0m - %.40s\n\n", current->game ? current->game->name : baseName(current->path));
+	printf("\x1b[31mPokeSave Link\x1b[0m - %.40s\n\n", current->label);
+	if (current->kind == SRC_NDS) printf("Cartucho de DS: no lo saques mientras\nesta app este abierta.\n\n");
 
 	if (R_FAILED(readSave(current))) {
 		printf("No se ha podido leer la partida.\n");
@@ -630,6 +773,8 @@ int main(void) {
 	close(server);
 	socExit();
 	free(saveData);
+	if (pxi) pxiDevExit();
+	amExit();
 	gfxExit();
 	return 0;
 }
