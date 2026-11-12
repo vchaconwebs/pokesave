@@ -5,7 +5,9 @@ Salida:
   3ds/PokeSaveLink/meta/banner.png    256x128 banner del menú HOME (pantalla de arriba)
   3ds/PokeSaveLink/meta/banner.wav    jingle del banner (sintetizado)
   3ds/PokeSaveLink/gfx/logo.png       64x64  logo que usa la app en pantalla
-  web/public/3ds/logo.png             256x256 para la página de la 3DS
+  web/public/3ds/logo.png             256x256 para la sección de la 3DS
+  web/public/logo-{32,48,192,512}.png  favicon, cabecera e iconos de la web
+  web/public/apple-touch-icon.png     180x180 sin transparencia (iPhone)
 Uso: python tools/make-3ds-art.py
 """
 import math
@@ -126,6 +128,11 @@ def jingle(path):
 logo(48, square=True).save(os.path.join(META, 'icon.png'))
 logo(64).save(os.path.join(GFX, 'logo.png'))
 logo(256).save(os.path.join(WEB, 'logo.png'))
+# La web usa el mismo logo: favicon, cabecera, icono de iPhone/Android y vista previa al compartir.
+PUB = os.path.join(ROOT, 'web', 'public')
+for n in (32, 48, 192, 512):
+    logo(n).save(os.path.join(PUB, f'logo-{n}.png'))
+logo(180, square=True).save(os.path.join(PUB, 'apple-touch-icon.png'))
 banner().save(os.path.join(META, 'banner.png'))
 jingle(os.path.join(META, 'banner.wav'))
 print('ok')

@@ -7,24 +7,8 @@ import type { TypeInfo } from '../types'
 import { spriteUrl, speciesHue, typeColor, typeInk } from '../theme'
 
 export function Logo({ size = 36 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 36 36" aria-hidden="true" className="logo">
-      <defs>
-        <linearGradient id="logo-shine" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity=".25" />
-          <stop offset=".5" stopColor="#fff" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <rect x="2" y="2" width="32" height="32" rx="9" fill="#e3242b" />
-      <rect x="2" y="2" width="32" height="32" rx="9" fill="url(#logo-shine)" />
-      <circle cx="13" cy="13" r="6.5" fill="#fff" />
-      <circle cx="13" cy="13" r="4.6" fill="#29a8ff" />
-      <circle cx="11.4" cy="11.4" r="1.6" fill="#fff" opacity=".85" />
-      <circle cx="24" cy="9" r="2" fill="#ff6b6b" stroke="#7a0f17" strokeWidth=".8" />
-      <circle cx="29" cy="9" r="2" fill="#ffd23f" stroke="#7a0f17" strokeWidth=".8" />
-      <rect x="8" y="23" width="20" height="5" rx="2.5" fill="#7a0f17" opacity=".55" />
-    </svg>
-  )
+  // El mismo logo que la app de 3DS (lo dibuja tools/make-3ds-art.py).
+  return <img src={`${import.meta.env.BASE_URL}logo-192.png`} width={size} height={size} alt="" aria-hidden="true" className="logo" />
 }
 
 /** Poké Ball dibujada a mano. `shake` la hace temblar como en una captura. */

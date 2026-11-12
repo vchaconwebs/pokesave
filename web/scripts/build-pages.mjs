@@ -95,7 +95,7 @@ const css = `
 :root{--bg:#0e1430;--surface:#182150;--text:#f3f5ff;--muted:#a8b0d6;--red:#e3242b;--gold:#ffcb05;--line:rgb(255 255 255/.12)}
 @media (prefers-color-scheme:light){:root{--bg:#eaf3ff;--surface:#fff;--text:#1b1d26;--muted:#5a6280;--line:rgb(0 0 0/.1)}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:17px/1.6 ui-rounded,'Fredoka',system-ui,sans-serif}
-header{background:var(--red);color:#fff;padding:14px 16px}header a{color:#fff;text-decoration:none;font-weight:800;font-size:1.2rem}
+header{background:var(--red);color:#fff;padding:10px 16px}header a{color:#fff;text-decoration:none;font-weight:800;font-size:1.2rem;display:inline-flex;align-items:center;gap:10px}header img{border-radius:9px;box-shadow:0 0 0 2px rgb(255 255 255 / .6)}
 main{max-width:860px;margin:0 auto;padding:24px 16px 48px}h1{font-size:clamp(1.6rem,4vw,2.3rem);line-height:1.2;margin:.2em 0 .4em}
 h2{margin-top:1.8em;font-size:1.3rem}.card{background:var(--surface);border-radius:18px;padding:16px 18px;box-shadow:inset 0 0 0 2px var(--line);margin:14px 0}
 a{color:var(--gold)}@media (prefers-color-scheme:light){a{color:#1f5fa8}}
@@ -123,12 +123,14 @@ ${alternates.map(([l, href]) => `<link rel="alternate" hreflang="${l}" href="${h
 <meta property="og:site_name" content="PokeSave">
 <meta name="twitter:card" content="summary">
 <meta name="theme-color" content="#e3242b">
-<link rel="icon" type="image/svg+xml" href="${root}favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="${root}logo-32.png">
+<link rel="apple-touch-icon" href="${root}apple-touch-icon.png">
+<meta property="og:image" content="${SITE}logo-512.png">
 ${jsonld.map((j) => `<script type="application/ld+json">${JSON.stringify(j)}</script>`).join('\n')}
 <style>${css}</style>
 </head>
 <body>
-<header><a href="${root}">⬤ PokeSave</a></header>
+<header><a href="${root}"><img src="${root}logo-48.png" alt="" width="34" height="34">PokeSave</a></header>
 <main>
 ${body(root)}
 </main>
