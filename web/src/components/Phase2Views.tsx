@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Engine } from '../engine'
 import type { BagView as Bag, DexEntry, SaveSummary, SlotRef } from '../types'
 import { errorKey, useI18n, type Key } from '../i18n'
@@ -101,6 +101,15 @@ function PouchEditor({ engine, pouch, onSaved }: { engine: Engine; pouch: Bag['p
   const { t, lang } = useI18n()
   const [items, setItems] = useState(pouch.items)
   const [adding, setAdding] = useState(0)
+  // El objeto añadido va al final (como en el juego): se baja hasta él y se resalta un momento.
+  const [justAdded, setJustAdded] = useState<number | null>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+  useEffect(() => {
+    if (justAdded === null) return
+    listRef.current?.querySelector('.is-new')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const id = setTimeout(() => setJustAdded(null), 1600)
+    return () => clearTimeout(id)
+  }, [justAdded])
   const [error, setError] = useState<string | null>(null)
   const changed = JSON.stringify(items) !== JSON.stringify(pouch.items)
   const available = useMemo(() => pouch.allowed.filter((o) => !items.some((i) => i.id === o.id)), [pouch.allowed, items])
@@ -118,12 +127,32 @@ function PouchEditor({ engine, pouch, onSaved }: { engine: Engine; pouch: Bag['p
         <span className="px">{t('bagSlots', { n: items.length, max: pouch.slots })}</span>
       </div>
 
+      {items.length < pouch.slots && available.length > 0 && (
+        <div className="pouch__add">
+          <Combobox label={t('bagAdd')} options={available} value={adding} noneLabel="—" onChange={setAdding} />
+          <button
+            type="button"
+            className="btn btn--sm"
+            disabled={!adding}
+            onClick={() => {
+              const opt = pouch.allowed.find((o) => o.id === adding)
+              if (!opt) return
+              setItems([...items, { id: opt.id, name: opt.name, count: 1 }])
+              setAdding(0)
+              setJustAdded(opt.id)
+            }}
+          >
+            ＋ {t('bagAddButton')}
+          </button>
+        </div>
+      )}
+
       {items.length === 0 ? (
         <p className="pouch__empty">{t('bagEmpty')}</p>
       ) : (
-        <ul className="bag__list">
+        <ul className="bag__list" ref={listRef}>
           {items.map((i, n) => (
-            <li key={i.id} className="bag__row">
+            <li key={i.id} className={`bag__row${i.id === justAdded ? ' is-new' : ''}`}>
               <span className="bag__name">{i.name}</span>
               {!single && (
                 <span className="bag__qty">
@@ -149,24 +178,6 @@ function PouchEditor({ engine, pouch, onSaved }: { engine: Engine; pouch: Bag['p
         </ul>
       )}
 
-      {items.length < pouch.slots && available.length > 0 && (
-        <div className="pouch__add">
-          <Combobox label={t('bagAdd')} options={available} value={adding} noneLabel="—" onChange={setAdding} />
-          <button
-            type="button"
-            className="btn btn--sm"
-            disabled={!adding}
-            onClick={() => {
-              const opt = pouch.allowed.find((o) => o.id === adding)
-              if (!opt) return
-              setItems([...items, { id: opt.id, name: opt.name, count: 1 }])
-              setAdding(0)
-            }}
-          >
-            ＋ {t('bagAddButton')}
-          </button>
-        </div>
-      )}
 
       {(changed || error) && (
         <div className="pouch__foot">

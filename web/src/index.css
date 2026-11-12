@@ -2753,6 +2753,9 @@ p {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 8px;
+  /* está encima de la lista: su desplegable tiene que quedar por delante de las filas */
+  position: relative;
+  z-index: 20;
 }
 .pouch__add .btn {
   min-height: 46px;
@@ -3326,3 +3329,10 @@ p {
   .landing__split .app3ds__note { display: none; }
 }
 
+
+/* Objeto recién añadido a la mochila: se resalta un momento. */
+.bag__row.is-new { animation: bag-new 1.6s ease-out; }
+@keyframes bag-new {
+  0%, 30% { box-shadow: inset 0 0 0 3px var(--gold), 0 0 18px color-mix(in srgb, var(--gold) 60%, transparent); }
+  100% { box-shadow: none; }
+}
