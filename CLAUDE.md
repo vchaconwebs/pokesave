@@ -226,6 +226,17 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
 - `node web/scripts/mock-3ds.mjs <partida>` simula la consola en `http://localhost:8000` (PIN
   1234) y escribe lo guardado en `<partida>.guardada`.
 
+## Idiomas
+
+- La web va en español, inglés, francés, alemán e italiano (`i18n.ts` + `i18n.fr.ts`, `i18n.de.ts`,
+  `i18n.it.ts`; el tipo `Dict` obliga a tener todas las claves). Selector en la cabecera; si no hay
+  idioma guardado se usa el del navegador (y si no es uno de los cinco, inglés).
+- Los textos del motor (especies, movimientos, objetos…) salen de PKHeX en el idioma pedido.
+- Datos del asistente: el DataBuilder escribe los lugares con `Es/En/Fr/De/It` y une objetos,
+  movimientos y formas como `"es|en|fr|de|it"`. En `bw.json` los nombres de fr/de/it salen de
+  `tools/gen5-locations.json` (PKHeX) buscando por el nombre inglés de PokéAPI.
+- Las páginas estáticas para buscadores siguen solo en español.
+
 ## Mediciones de la Fase 0
 
 Motor publicado con `PublishTrimmed`, `TrimMode=full`, `InvariantGlobalization`, Webcil y

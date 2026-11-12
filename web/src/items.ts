@@ -90,11 +90,11 @@ export function mapDetail(name: string, lang: string): string | null {
 }
 
 /** Todos los sitios de objetos del juego, con lo recogido según los flags. */
-export function buildSpots(data: ItemData, locations: { Es: string; En: string }[], flags: ReadonlyMap<number, boolean>, lang: string): ItemSpot[] {
+export function buildSpots(data: ItemData, locations: { Es: string; En: string; Fr?: string; De?: string; It?: string }[], flags: ReadonlyMap<number, boolean>, lang: string): ItemSpot[] {
   const placeOf = (map: number) => {
     const m = data.maps[map]
     const loc = locations[m.sec]
-    return loc ? (lang === 'es' ? loc.Es : loc.En) : m.name
+    return loc ? (({ es: loc.Es, fr: loc.Fr, de: loc.De, it: loc.It } as Record<string, string | undefined>)[lang] ?? loc.En) : m.name
   }
   const spots: ItemSpot[] = data.items.map(([item, map, kind, flag]) => ({
     item,
@@ -127,7 +127,7 @@ export function spotsByItem(spots: ItemSpot[]): Map<number, ItemSpot[]> {
   return map
 }
 
-const cache = new Map<string, Promise<{ data: ItemData; locations: { Es: string; En: string }[] }>>()
+const cache = new Map<string, Promise<{ data: ItemData; locations: { Es: string; En: string; Fr?: string; De?: string; It?: string }[] }>>()
 
 export function loadItemData(key: string) {
   let p = cache.get(key)
@@ -140,7 +140,7 @@ export function loadItemData(key: string) {
       })
     const locations = key === 'c' || key === 'gs' ? 'gen2-locations.json' : 'gen3-locations.json'
     p = Promise.all([get(`${key}.json`), get(locations)])
-      .then(([data, locations]) => ({ data: data as ItemData, locations: locations as { Es: string; En: string }[] }))
+      .then(([data, locations]) => ({ data: data as ItemData, locations: locations as { Es: string; En: string; Fr?: string; De?: string; It?: string }[] }))
       .catch((err) => {
         cache.delete(key)
         throw err

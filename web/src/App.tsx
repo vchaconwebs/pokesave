@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { downloadBytes, loadEngine, type Engine, type Progress } from './engine'
-import { I18nContext, detectLang, makeT, useI18n, type Key, type Lang } from './i18n'
+import { I18nContext, LANGS, LANG_NAMES, detectLang, makeT, useI18n, type Key, type Lang } from './i18n'
 import type { GameLists, SaveSummary, SlotRef } from './types'
 import { SaveView, type Section } from './components/SaveView'
 import { BagPanel, DexPanel, ImportDialog } from './components/Phase2Views'
@@ -304,13 +304,13 @@ export default function App() {
           </a>
           <div className="topbar__right">
             <EnginePill state={engine} pct={pct} onRetry={retryEngine} />
-            <div className="seg" role="group" aria-label={t('language')}>
-              {(['es', 'en'] as const).map((l) => (
-                <button key={l} type="button" aria-pressed={lang === l} onClick={() => changeLang(l)}>
-                  {l.toUpperCase()}
-                </button>
+            <select className="lang-select" aria-label={t('language')} title={t('language')} value={lang} onChange={(e) => changeLang(e.target.value as Lang)}>
+              {LANGS.map((l) => (
+                <option key={l} value={l}>
+                  {LANG_NAMES[l]}
+                </option>
               ))}
-            </div>
+            </select>
             <button type="button" className="icon-btn" onClick={toggleTheme} aria-label={t('theme')} title={t('theme')}>
               <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
             </button>

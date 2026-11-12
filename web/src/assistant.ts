@@ -13,6 +13,9 @@ export interface BwLocation {
   key: string
   en: string
   es: string
+  fr?: string
+  de?: string
+  it?: string
   /** Medallas para llegar (aprox.); 9 = después de la Liga. */
   badges: number
   /** Número de lugar de PKHeX (datos de PKHeX): sección de mapa en Gen 3, landmark en Gen 2. */
@@ -139,51 +142,54 @@ export function assistantGame(gameId: string): AssistantGame | null {
   return group ? { group, versions: GROUPS[group], version: null } : null
 }
 
-/** Nombre de cada versión en los dos idiomas. */
-export const VERSION_NAMES: Record<string, [string, string]> = {
-  RD: ['Rojo', 'Red'],
-  GN: ['Azul', 'Blue'],
-  YW: ['Amarillo', 'Yellow'],
-  GD: ['Oro', 'Gold'],
-  SI: ['Plata', 'Silver'],
-  C: ['Cristal', 'Crystal'],
-  R: ['Rubí', 'Ruby'],
-  S: ['Zafiro', 'Sapphire'],
-  E: ['Esmeralda', 'Emerald'],
-  FR: ['Rojo Fuego', 'FireRed'],
-  LG: ['Verde Hoja', 'LeafGreen'],
-  D: ['Diamante', 'Diamond'],
-  P: ['Perla', 'Pearl'],
-  Pt: ['Platino', 'Platinum'],
-  HG: ['Oro HeartGold', 'HeartGold'],
-  SS: ['Plata SoulSilver', 'SoulSilver'],
-  B: ['Negro', 'Black'],
-  W: ['Blanco', 'White'],
-  B2: ['Negro 2', 'Black 2'],
-  W2: ['Blanco 2', 'White 2'],
-  X: ['X', 'X'],
-  Y: ['Y', 'Y'],
-  OR: ['Rubí Omega', 'Omega Ruby'],
-  AS: ['Zafiro Alfa', 'Alpha Sapphire'],
-  SN: ['Sol', 'Sun'],
-  MN: ['Luna', 'Moon'],
-  US: ['Ultrasol', 'Ultra Sun'],
-  UM: ['Ultraluna', 'Ultra Moon'],
-  GP: ['Let’s Go, Pikachu!', 'Let’s Go, Pikachu!'],
-  GE: ['Let’s Go, Eevee!', 'Let’s Go, Eevee!'],
-  SW: ['Espada', 'Sword'],
-  SH: ['Escudo', 'Shield'],
-  BD: ['Diamante Brillante', 'Brilliant Diamond'],
-  SP: ['Perla Reluciente', 'Shining Pearl'],
-  PLA: ['Leyendas: Arceus', 'Legends: Arceus'],
-  SL: ['Escarlata', 'Scarlet'],
-  VL: ['Púrpura', 'Violet'],
-  ZA: ['Leyendas: Z-A', 'Legends: Z-A'],
+/** Nombre de cada versión en los idiomas de la web (es, en, fr, de, it). */
+export const VERSION_NAMES: Record<string, string[]> = {
+  RD: ['Rojo', 'Red', 'Rouge', 'Rot', 'Rossa'],
+  GN: ['Azul', 'Blue', 'Bleu', 'Blau', 'Blu'],
+  YW: ['Amarillo', 'Yellow', 'Jaune', 'Gelb', 'Gialla'],
+  GD: ['Oro', 'Gold', 'Or', 'Gold', 'Oro'],
+  SI: ['Plata', 'Silver', 'Argent', 'Silber', 'Argento'],
+  C: ['Cristal', 'Crystal', 'Cristal', 'Kristall', 'Cristallo'],
+  R: ['Rubí', 'Ruby', 'Rubis', 'Rubin', 'Rubino'],
+  S: ['Zafiro', 'Sapphire', 'Saphir', 'Saphir', 'Zaffiro'],
+  E: ['Esmeralda', 'Emerald', 'Émeraude', 'Smaragd', 'Smeraldo'],
+  FR: ['Rojo Fuego', 'FireRed', 'Rouge Feu', 'Feuerrot', 'Rosso Fuoco'],
+  LG: ['Verde Hoja', 'LeafGreen', 'Vert Feuille', 'Blattgrün', 'Verde Foglia'],
+  D: ['Diamante', 'Diamond', 'Diamant', 'Diamant', 'Diamante'],
+  P: ['Perla', 'Pearl', 'Perle', 'Perl', 'Perla'],
+  Pt: ['Platino', 'Platinum', 'Platine', 'Platin', 'Platino'],
+  HG: ['Oro HeartGold', 'HeartGold', 'Or HeartGold', 'HeartGold', 'Oro HeartGold'],
+  SS: ['Plata SoulSilver', 'SoulSilver', 'Argent SoulSilver', 'SoulSilver', 'Argento SoulSilver'],
+  B: ['Negro', 'Black', 'Noire', 'Schwarz', 'Nero'],
+  W: ['Blanco', 'White', 'Blanche', 'Weiß', 'Bianco'],
+  B2: ['Negro 2', 'Black 2', 'Noire 2', 'Schwarz 2', 'Nero 2'],
+  W2: ['Blanco 2', 'White 2', 'Blanche 2', 'Weiß 2', 'Bianco 2'],
+  X: ['X', 'X', 'X', 'X', 'X'],
+  Y: ['Y', 'Y', 'Y', 'Y', 'Y'],
+  OR: ['Rubí Omega', 'Omega Ruby', 'Rubis Oméga', 'Omega Rubin', 'Rubino Omega'],
+  AS: ['Zafiro Alfa', 'Alpha Sapphire', 'Saphir Alpha', 'Alpha Saphir', 'Zaffiro Alpha'],
+  SN: ['Sol', 'Sun', 'Soleil', 'Sonne', 'Sole'],
+  MN: ['Luna', 'Moon', 'Lune', 'Mond', 'Luna'],
+  US: ['Ultrasol', 'Ultra Sun', 'Ultra-Soleil', 'Ultrasonne', 'Ultrasole'],
+  UM: ['Ultraluna', 'Ultra Moon', 'Ultra-Lune', 'Ultramond', 'Ultraluna'],
+  GP: ['Let’s Go, Pikachu!', 'Let’s Go, Pikachu!', 'Let’s Go, Pikachu', 'Let’s Go, Pikachu!', 'Let’s Go, Pikachu!'],
+  GE: ['Let’s Go, Eevee!', 'Let’s Go, Eevee!', 'Let’s Go, Évoli', 'Let’s Go, Evoli!', 'Let’s Go, Eevee!'],
+  SW: ['Espada', 'Sword', 'Épée', 'Schwert', 'Spada'],
+  SH: ['Escudo', 'Shield', 'Bouclier', 'Schild', 'Scudo'],
+  BD: ['Diamante Brillante', 'Brilliant Diamond', 'Diamant Étincelant', 'Strahlender Diamant', 'Diamante Lucente'],
+  SP: ['Perla Reluciente', 'Shining Pearl', 'Perle Scintillante', 'Leuchtende Perle', 'Perla Splendente'],
+  PLA: ['Leyendas: Arceus', 'Legends: Arceus', 'Légendes Pokémon : Arceus', 'Pokémon-Legenden: Arceus', 'Leggende Pokémon: Arceus'],
+  SL: ['Escarlata', 'Scarlet', 'Écarlate', 'Karmesin', 'Scarlatto'],
+  VL: ['Púrpura', 'Violet', 'Violet', 'Purpur', 'Violetto'],
+  ZA: ['Leyendas: Z-A', 'Legends: Z-A', 'Légendes Pokémon : Z-A', 'Pokémon-Legenden: Z-A', 'Leggende Pokémon: Z-A'],
 }
+
+/** Posición de cada idioma en los textos "es|en|fr|de|it". */
+export const langIndex = (lang: string) => Math.max(0, ['es', 'en', 'fr', 'de', 'it'].indexOf(lang))
 
 export const versionName = (v: Version, lang: string) => {
   const n = VERSION_NAMES[v]
-  return n ? (lang === 'es' ? n[0] : n[1]) : v
+  return n ? (n[langIndex(lang)] ?? n[1]) : v
 }
 
 const bitOf = (data: BwData, version: Version) => 1 << Math.max(0, data.versions.indexOf(version))
@@ -342,7 +348,7 @@ export function howToGet(data: BwData, species: number, version: Version, progre
 }
 
 /** Nombre del lugar en el idioma de la web. */
-export const placeName = (loc: BwLocation, lang: string) => (lang === 'es' ? loc.es : loc.en)
+export const placeName = (loc: BwLocation, lang: string) => loc[lang as 'es' | 'en' | 'fr' | 'de' | 'it'] ?? loc.en
 
 /** Objetos de evolución (nombres de PokéAPI) en español. */
 const ITEMS_ES: Record<string, string> = {
@@ -372,10 +378,42 @@ const ITEMS_ES: Record<string, string> = {
   'prism-scale': 'Escama Bella',
 }
 
+/** Los mismos objetos en francés, alemán e italiano. */
+const ITEMS_OTHER: Record<string, [string, string, string]> = {
+  'fire-stone': ['Pierre Feu', 'Feuerstein', 'Pietrafocaia'],
+  'water-stone': ['Pierre Eau', 'Wasserstein', 'Pietraidrica'],
+  'thunder-stone': ['Pierre Foudre', 'Donnerstein', 'Pietratuono'],
+  'leaf-stone': ['Pierre Plante', 'Blattstein', 'Pietrafoglia'],
+  'moon-stone': ['Pierre Lune', 'Mondstein', 'Pietralunare'],
+  'sun-stone': ['Pierre Soleil', 'Sonnenstein', 'Pietrasolare'],
+  'shiny-stone': ['Pierre Éclat', 'Leuchtstein', 'Pietrabrillo'],
+  'dusk-stone': ['Pierre Nuit', 'Finsterstein', 'Neropietra'],
+  'dawn-stone': ['Pierre Aube', 'Funkelstein', 'Pietralbore'],
+  'oval-stone': ['Pierre Ovale', 'Ovaler Stein', 'Pietraovale'],
+  'kings-rock': ['Roche Royale', 'King-Stein', 'Roccia di Re'],
+  'metal-coat': ['Peau Métal', 'Metallmantel', 'Metalcoperta'],
+  'dragon-scale': ['Écaille Draco', 'Drachenschuppe', 'Squama Drago'],
+  'up-grade': ['Améliorator', 'Up-Grade', 'Upgrade'],
+  'dubious-disc': ['CD Douteux', 'Dubiosdisc', 'Dubbiodisco'],
+  'protector': ['Protecteur', 'Schützer', 'Protettore'],
+  'electirizer': ['Électriseur', 'Stromisierer', 'Elettritore'],
+  'magmarizer': ['Magmariseur', 'Magmaisierer', 'Magmatore'],
+  'reaper-cloth': ['Tissu Fauche', 'Düsterumhang', 'Terrorpanno'],
+  'deep-sea-tooth': ['Dent Océan', 'Abysszahn', 'Dente Abissi'],
+  'deep-sea-scale': ['Écaille Océan', 'Abyssplatte', 'Squama Abissi'],
+  'razor-fang': ['Croc Rasoir', 'Scharfzahn', 'Zannaffilata'],
+  'razor-claw': ['Griffe Rasoir', 'Scharfklaue', 'Affilartigli'],
+  'prism-scale': ['Bel’Écaille', 'Schönschuppe', 'Squama Bella'],
+}
+
 export function itemName(slug: string, lang: string) {
   // Datos de PKHeX: ya vienen traducidos, "Piedra Fuego|Fire Stone".
-  if (slug.includes('|')) return slug.split('|')[lang === 'es' ? 0 : 1]
-  if (lang === 'es' && ITEMS_ES[slug]) return ITEMS_ES[slug]
+  if (slug.includes('|')) {
+    const parts = slug.split('|')
+    return parts[langIndex(lang)] || parts[1]
+  }
+  const own = lang === 'es' ? ITEMS_ES[slug] : ITEMS_OTHER[slug]?.[langIndex(lang) - 2]
+  if (own) return own
   return slug
     .split('-')
     .map((w) => w[0].toUpperCase() + w.slice(1))
@@ -395,7 +433,7 @@ export interface PkhexEvolution {
 export interface PkhexGameData {
   Versions: Version[]
   Methods: string[]
-  Locations: { Es: string; En: string; Id?: number }[]
+  Locations: { Es: string; En: string; Fr?: string; De?: string; It?: string; Id?: number }[]
   Species: Record<
     string,
     {
@@ -455,7 +493,7 @@ export function fromPkhex(d: PkhexGameData): BwData {
   }
   return {
     version: 1,
-    locations: d.Locations.map((l, i) => ({ key: String(i), es: l.Es, en: l.En, badges: 0, id: l.Id })),
+    locations: d.Locations.map((l, i) => ({ key: String(i), es: l.Es, en: l.En, fr: l.Fr, de: l.De, it: l.It, badges: 0, id: l.Id })),
     species,
     versions: d.Versions,
     rich: false,

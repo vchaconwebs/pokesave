@@ -1,7 +1,7 @@
 // Genera web/public/data/bw.json: dónde se consigue cada Pokémon en Pokémon Blanco/Negro.
 // Fuente: PokéAPI (con caché en tools/.cache) + correcciones a mano de tools/bw-locations.mjs.
 // Uso: node tools/build-bw-data.mjs
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { get, pool, idFromUrl } from './pokeapi.mjs'
@@ -73,6 +73,16 @@ for (let i = 0; i < ids.length; i++) {
 }
 
 // ---------- Lugares ----------
+// Los de Blanco/Negro llevan " (B/W)" en PKHeX cuando el nombre se repite en N2B2: van después y mandan.
+const GEN5 = new Map(
+  JSON.parse(readFileSync(new URL('./gen5-locations.json', import.meta.url), 'utf8'))
+    .filter((l) => !l.En.includes('B2/W2'))
+    .sort((a, b) => a.En.includes('(B/W)') - b.En.includes('(B/W)'))
+    .map((l) => [l.En.replace(' (B/W)', '').toLowerCase(), Object.fromEntries(Object.entries(l).map(([k, v]) => [k, typeof v === 'string' ? v.replace(' (B/W)', '') : v]))]),
+)
+const tower = GEN5.get('dragonspiral tower')
+GEN5.set('dragonspiral tower (top)', { Fr: `${tower.Fr} (sommet)`, De: `${tower.De} (Spitze)`, It: `${tower.It} (cima)` })
+GEN5.set('all over unova (roaming)', { Fr: 'Partout à Unys (errant)', De: 'Überall in Einall (streunend)', It: 'In tutta Unima (vagante)' })
 const locationKeys = [...usedLocations].sort((a, b) => (LOCATIONS[a]?.badges ?? 99) - (LOCATIONS[b]?.badges ?? 99) || a.localeCompare(b))
 const locations = await pool(locationKeys, 8, async (key) => {
   const fixed = LOCATIONS[key]
@@ -82,8 +92,13 @@ const locations = await pool(locationKeys, 8, async (key) => {
     const loc = await get(`location/${key}`)
     en = loc?.names.find((n) => n.language.name === 'en')?.name ?? key
   }
-  return { key, en, es: fixed?.es ?? en, badges: fixed?.badges ?? 9 }
+  // Francés, alemán e italiano: los nombres de PKHeX (tools/gen5-locations.json, lo escribe el
+  // DataBuilder), buscando por el nombre inglés. Si no está, se queda el inglés.
+  const pk = GEN5.get(en.toLowerCase())
+  return { key, en, es: fixed?.es ?? en, fr: pk?.Fr ?? en, de: pk?.De ?? en, it: pk?.It ?? en, badges: fixed?.badges ?? 9 }
 })
+const missing = locations.filter((l) => !GEN5.has(l.en.toLowerCase())).map((l) => l.en)
+if (missing.length) console.warn(`  ⚠ lugares sin traducción de PKHeX: ${missing.join(', ')}`)
 const locIndex = new Map(locationKeys.map((k, i) => [k, i]))
 
 // ---------- Evoluciones ----------
@@ -115,7 +130,7 @@ const out = {
   version: 1,
   game: 'black-white',
   source: 'PokéAPI (https://pokeapi.co) + correcciones propias (tools/bw-locations.mjs)',
-  locations: locations.map(({ key, en, es, badges }) => ({ key, en, es, badges })),
+  locations: locations.map(({ key, en, es, fr, de, it, badges }) => ({ key, en, es, fr, de, it, badges })),
   species: {},
 }
 for (const id of ids) {

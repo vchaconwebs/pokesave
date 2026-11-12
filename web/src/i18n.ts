@@ -1,6 +1,14 @@
 import { createContext, useContext } from 'react'
+import { de } from './i18n.de'
+import { fr } from './i18n.fr'
+import { it } from './i18n.it'
 
-export type Lang = 'es' | 'en'
+export type Lang = 'es' | 'en' | 'fr' | 'de' | 'it'
+
+export const LANGS: readonly Lang[] = ['es', 'en', 'fr', 'de', 'it']
+
+/** Nombre de cada idioma en su propio idioma (para el selector). */
+export const LANG_NAMES: Record<Lang, string> = { es: 'Español', en: 'English', fr: 'Français', de: 'Deutsch', it: 'Italiano' }
 
 const es = {
   tagline: 'Editor de partidas',
@@ -419,7 +427,7 @@ const es = {
   'err_dex-unsupported': 'La Pokédex de este juego aún no se puede editar.',
 }
 
-type Dict = typeof es
+export type Dict = typeof es
 
 const en: Dict = {
   tagline: 'Save editor',
@@ -838,17 +846,18 @@ const en: Dict = {
   'err_dex-unsupported': "This game's Pokédex can't be edited yet.",
 }
 
-export const dictionaries: Record<Lang, Dict> = { es, en }
+export const dictionaries: Record<Lang, Dict> = { es, en, fr, de, it }
 export type Key = keyof Dict
 
 export function detectLang(): Lang {
   try {
     const saved = localStorage.getItem('pokesave.lang')
-    if (saved === 'es' || saved === 'en') return saved
+    if (saved && (LANGS as readonly string[]).includes(saved)) return saved as Lang
   } catch {
     /* almacenamiento no disponible */
   }
-  return navigator.language.toLowerCase().startsWith('es') ? 'es' : 'en'
+  const nav = navigator.language.toLowerCase().slice(0, 2)
+  return (LANGS as readonly string[]).includes(nav) ? (nav as Lang) : 'en'
 }
 
 export const I18nContext = createContext<{ lang: Lang; t: (k: Key, vars?: Record<string, string | number>) => string }>({

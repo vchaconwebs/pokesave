@@ -14,6 +14,10 @@ Directory.CreateDirectory(outDir);
 
 var es = GameInfo.GetStrings("es");
 var en = GameInfo.GetStrings("en");
+// Idiomas de la web, en este orden: los textos se unen con "|" ("es|en|fr|de|it").
+GameStrings[] langs = [es, en, GameInfo.GetStrings("fr"), GameInfo.GetStrings("de"), GameInfo.GetStrings("it")];
+string Join(Func<GameStrings, string> f) => string.Join("|", langs.Select(f));
+LocationName Names(Func<GameStrings, string> f, int? id = null) { var n = langs.Select(f).ToArray(); return new LocationName(n[0], n[1], n[2], n[3], n[4], id); }
 var asm = typeof(PKM).Assembly;
 
 var groups = new Group[]
@@ -59,15 +63,21 @@ if (only is null || only.Contains("locations"))
     Directory.CreateDirectory(itemsDir);
     var g3 = new List<LocationName>();
     for (ushort i = 0; i < 213; i++)
-        g3.Add(new LocationName(es.GetLocationName(false, i, 3, 3, GameVersion.E), en.GetLocationName(false, i, 3, 3, GameVersion.E)));
+        g3.Add(Names(str => str.GetLocationName(false, i, 3, 3, GameVersion.E)));
     File.WriteAllText(Path.Combine(itemsDir, "gen3-locations.json"), JsonSerializer.Serialize(g3));
     Console.WriteLine($"gen3-locations: {g3.Count} lugares (p. ej. {g3[16].Es} / {g3[88].Es})");
 
     // Gen 2: el lugar de captura es el "landmark" del mapa (pret: constants/landmark_constants.asm).
     var g2 = new List<LocationName>();
     for (ushort i = 0; i < 128; i++)
-        g2.Add(new LocationName(es.GetLocationName(false, i, 2, 2, GameVersion.C), en.GetLocationName(false, i, 2, 2, GameVersion.C)));
+        g2.Add(Names(str => str.GetLocationName(false, i, 2, 2, GameVersion.C)));
     File.WriteAllText(Path.Combine(itemsDir, "gen2-locations.json"), JsonSerializer.Serialize(g2));
+
+    // Gen 5: tools/build-bw-data.mjs traduce los lugares de bw.json (PokéAPI) por el nombre inglés.
+    var g5 = new List<LocationName>();
+    for (ushort i = 0; i < 200; i++)
+        g5.Add(Names(str => str.GetLocationName(false, i, 5, 5, GameVersion.W)));
+    File.WriteAllText(Path.Combine(root, "tools", "gen5-locations.json"), JsonSerializer.Serialize(g5));
     Console.WriteLine($"gen2-locations: {g2.Count} lugares (p. ej. {g2[1].Es} / {g2[2].Es})");
 }
 
@@ -75,12 +85,12 @@ GameData Build(Group g)
 {
     var locations = new List<LocationName>();
     var locIndex = new Dictionary<string, int>();
-    int Loc(string key, string nameEs, string nameEn)
+    int Loc(string key, string[] n)
     {
         if (!locIndex.TryGetValue(key, out var i))
         {
             locIndex[key] = i = locations.Count;
-            locations.Add(new LocationName(nameEs, nameEn, int.TryParse(key, out var id) ? id : null));
+            locations.Add(new LocationName(n[0], n[1], n[2], n[3], n[4], int.TryParse(key, out var id) ? id : null));
         }
         return i;
     }
@@ -88,7 +98,7 @@ GameData Build(Group g)
     var enc = new Dictionary<ushort, Dictionary<(int Loc, string Method, byte Form), int[]>>();
     var methods = new SortedSet<string>();
 
-    void Add(object t, string method, int vmask, ushort? locationOverride = null, string? locKeyOverride = null, string? locEs = null, string? locEn = null)
+    void Add(object t, string method, int vmask, ushort? locationOverride = null, string? locKeyOverride = null, string[]? locNames = null)
     {
         ushort species = Get<ushort>(t, "Species");
         if (species == 0 || vmask == 0)
@@ -101,14 +111,12 @@ GameData Build(Group g)
         int loc;
         if (locKeyOverride is not null)
         {
-            loc = Loc(locKeyOverride, locEs!, locEn!);
+            loc = Loc(locKeyOverride, locNames!);
         }
         else
         {
             ushort location = locationOverride ?? Get<ushort>(t, "Location");
-            var nEs = LocationNameOf(es, location, g);
-            var nEn = LocationNameOf(en, location, g);
-            loc = Loc($"{location}", nEs, nEn);
+            loc = Loc($"{location}", langs.Select(str => LocationNameOf(str, location, g)).ToArray());
         }
         methods.Add(method);
         if (!enc.TryGetValue(species, out var list))
@@ -165,8 +173,13 @@ GameData Build(Group g)
             mask = (Get<bool>(t, "IsAvailableHostScarlet") ? 1 : 0) | (Get<bool>(t, "IsAvailableHostViolet") ? 2 : 0);
             var map = Get<object>(t, "Map")?.ToString() ?? "Paldea";
             var stars = Get<byte>(t, "Stars");
-            var (mapEs, mapEn) = map switch { "Kitakami" => ("Noroteo", "Kitakami"), "Blueberry" => ("Academia Arándano", "Blueberry Academy"), _ => ("Paldea", "Paldea") };
-            Add(t, $"tera-{stars}", mask, locKeyOverride: $"tera-{map}", locEs: $"Teraincursiones de {mapEs}", locEn: $"{mapEn} Tera Raids");
+            string[] names = map switch
+            {
+                "Kitakami" => ["Teraincursiones de Noroteo", "Kitakami Tera Raids", "Raids Téracristal de Septentria", "Tera-Raids in Kitakami", "Raid Teracristal di Nordivia"],
+                "Blueberry" => ["Teraincursiones de la Academia Arándano", "Blueberry Academy Tera Raids", "Raids Téracristal de l’Académie Myrtille", "Tera-Raids der Blaubeer-Akademie", "Raid Teracristal dell’Accademia Mirtillo"],
+                _ => ["Teraincursiones de Paldea", "Paldea Tera Raids", "Raids Téracristal de Paldea", "Tera-Raids in Paldea", "Raid Teracristal di Paldea"],
+            };
+            Add(t, $"tera-{stars}", mask, locKeyOverride: $"tera-{map}", locNames: names);
             return;
         }
         if (cls.StartsWith("EncounterStatic8N") || cls.StartsWith("EncounterStatic8U"))
@@ -174,18 +187,19 @@ GameData Build(Group g)
             bool adventure = cls.StartsWith("EncounterStatic8U");
             Add(t, adventure ? "dynamax-adventure" : "max-raid", mask,
                 locKeyOverride: adventure ? "max-lair" : "max-raid",
-                locEs: adventure ? "Guarida Dinamax (Nieves de la Corona)" : "Incursiones Dinamax",
-                locEn: adventure ? "Max Lair (Crown Tundra)" : "Max Raid Battles");
+                locNames: adventure
+                    ? ["Guarida Dinamax (Nieves de la Corona)", "Max Lair (Crown Tundra)", "Antre Dynamax (Terres Enneigées de la Couronne)", "Dyna-Höhle (Kronen-Schneelande)", "Tana Dynamax (Landa corona)"]
+                    : ["Incursiones Dinamax", "Max Raid Battles", "Raids Dynamax", "Dyna-Raids", "Raid Dynamax"]);
             return;
         }
         if (cls.Contains("Pokewalker"))
         {
-            Add(t, "pokewalker", mask, locKeyOverride: "pokewalker", locEs: "Pokéwalker", locEn: "Pokéwalker");
+            Add(t, "pokewalker", mask, locKeyOverride: "pokewalker", locNames: ["Pokéwalker", "Pokéwalker", "Pokéwalker", "Pokéwalker", "Pokéwalker"]);
             return;
         }
         if (cls.Contains("Trade"))
         {
-            Add(t, "trade", mask, locKeyOverride: "trade", locEs: "Intercambio en el juego", locEn: "In-game trade");
+            Add(t, "trade", mask, locKeyOverride: "trade", locNames: ["Intercambio en el juego", "In-game trade", "Échange dans le jeu", "Tausch im Spiel", "Scambio nel gioco"]);
             return;
         }
         if (cls.Contains("Radar") || cls.Contains("Entree") || cls.Contains("Gift3") || cls.Contains("Ranch"))
@@ -239,7 +253,7 @@ GameData Build(Group g)
         foreach (var f in list?.Select(x => (byte)x[5]).Where(f => f != 0).Distinct() ?? [])
         {
             forms ??= [];
-            forms[f.ToString()] = FormName(es, s, f) + "|" + FormName(en, s, f);
+            forms[f.ToString()] = Join(str => FormName(str, s, f));
         }
         species[s.ToString()] = new SpeciesInfo(
             list,
@@ -266,9 +280,9 @@ GameData Build(Group g)
         int? with = null;
         // El significado de Argument depende del tipo (objeto, movimiento, especie…).
         if (type.Contains("Item") || type.Contains("Held") || type is "TradeHeldItem")
-            item = m.Argument == 0 ? null : es.itemlist[m.Argument] + "|" + en.itemlist[m.Argument];
+            item = m.Argument == 0 ? null : Join(str => str.itemlist[m.Argument]);
         else if (type.Contains("Move") && !type.Contains("Type"))
-            move = m.Argument == 0 ? null : es.movelist[m.Argument] + "|" + en.movelist[m.Argument];
+            move = m.Argument == 0 ? null : Join(str => str.movelist[m.Argument]);
         else if (type.Contains("TradeSpecies") || type == "LevelUpWithTeammate")
             with = m.Argument == 0 ? null : m.Argument;
         return new EvoInfo(from, type, m.Level == 0 ? null : m.Level, item, move, with);
@@ -388,7 +402,7 @@ sealed record Group(string Key, byte Gen, GameVersion[] Versions, string[] Table
     };
 }
 
-sealed record LocationName(string Es, string En, int? Id = null);
+sealed record LocationName(string Es, string En, string Fr, string De, string It, int? Id = null);
 
 sealed record EvoInfo(ushort From, string T, byte? Lvl, string? Item, string? Move, int? With);
 

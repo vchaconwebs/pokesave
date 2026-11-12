@@ -45,6 +45,19 @@ public class Phase2Tests
 
     // ---------- Deshacer / rehacer ----------
 
+    [Theory]
+    [InlineData("es", "Bulbasaur")]
+    [InlineData("fr", "Bulbizarre")]
+    [InlineData("de", "Bisasam")]
+    [InlineData("it", "Bulbasaur")]
+    public void Los_textos_salen_en_el_idioma_de_la_web(string lang, string bulbasaur)
+    {
+        var s = Open();
+        Assert.Equal(bulbasaur, s.GetDex(lang).Entries.First(e => e.Species == 1).Name);
+        var squirtle = s.GetDex(lang).Entries.First(e => e.Species == 7).Name;
+        Assert.Equal(lang switch { "fr" => "Carapuce", "de" => "Schiggy", _ => "Squirtle" }, squirtle);
+    }
+
     [Fact]
     public void Deshacer_y_rehacer()
     {
