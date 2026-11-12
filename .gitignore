@@ -37,3 +37,7 @@ web/dist-3ds/
 3ds/PokeSaveLink/*.3dsx
 3ds/PokeSaveLink/*.smdh
 3ds/PokeSaveLink/*.elf
+
+# Vídeo promocional (renderizado)
+promo/out/
+promo/*.mp4

@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>PokeSave · vídeo promocional</title>
+<style>
+  @font-face { font-family: 'PX'; src: url('/web/node_modules/@fontsource/press-start-2p/files/press-start-2p-latin-400-normal.woff2') format('woff2'); }
+  @font-face { font-family: 'FR'; src: url('/web/node_modules/@fontsource-variable/fredoka/files/fredoka-latin-wght-normal.woff2') format('woff2'); font-weight: 300 700; }
+  body { margin: 0; background: #000; display: grid; place-items: center; min-height: 100vh; color: #fff; font-family: system-ui; }
+  canvas { height: 92vh; width: auto; aspect-ratio: 9 / 16; }
+  #ui { position: fixed; top: 8px; left: 8px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="ui"></div>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// Vídeo vertical (TikTok) de PokeSave: animación dibujada en canvas, determinista (frame(t)),
+// para renderizarla fotograma a fotograma con promo/server.mjs y montarla con ffmpeg.
+const W = 1080, H = 1920, FPS = 30, BPM = 128, BEAT = 60 / BPM
+const cv = document.getElementById('c'), ctx = cv.getContext('2d')
+
+// ---------- utilidades ----------
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v))
+const seg = (t, a, b) => clamp((t - a) / (b - a))
+const outCubic = (x) => 1 - Math.pow(1 - x, 3)
+const inOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2)
+const outBack = (x) => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2) }
+const outElastic = (x) => (x === 0 || x === 1 ? x : Math.pow(2, -10 * x) * Math.sin((x * 10 - 0.75) * (2 * Math.PI) / 3) + 1)
+const lerp = (a, b, k) => a + (b - a) * k
+function rnd(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296) }
+
+const TYPE = { normal: '#A8A77A', fire: '#EE8130', water: '#6390F0', electric: '#F7D02C', grass: '#7AC74C', ice: '#96D9D6', fighting: '#C22E28', poison: '#A33EA1', ground: '#E2BF65', flying: '#A98FF3', psychic: '#F95587', bug: '#A6B91A', rock: '#B6A136', ghost: '#735797', dragon: '#6F35FC', dark: '#705746', steel: '#B7B7CE', fairy: '#D685AD' }
+const TYPE_ES = { fire: 'Fuego', water: 'Agua', ground: 'Tierra', electric: 'Eléctrico', flying: 'Volador', ice: 'Hielo', grass: 'Planta', poison: 'Veneno', steel: 'Acero', dark: 'Siniestro', dragon: 'Dragón' }
+
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r) }
+function text(s, x, y, size, color = '#fff', o = {}) {
+  ctx.save()
+  ctx.translate(x, y)
+  if (o.rot) ctx.rotate(o.rot)
+  if (o.scale !== undefined) ctx.scale(o.scale, o.scale)
+  ctx.globalAlpha *= o.alpha ?? 1
+  ctx.font = `${o.weight ?? 700} ${size}px ${o.px ? 'PX' : 'FR'}`
+  ctx.textAlign = o.align ?? 'center'
+  ctx.textBaseline = 'middle'
+  if (o.stroke) { ctx.lineJoin = 'round'; ctx.lineWidth = o.strokeW ?? size * 0.16; ctx.strokeStyle = o.stroke; ctx.strokeText(s, 0, 0) }
+  if (o.glow) { ctx.shadowColor = o.glow; ctx.shadowBlur = size * 0.5 }
+  ctx.fillStyle = color
+  ctx.fillText(s, 0, 0)
+  ctx.restore()
+}
+// Texto que "salta" al aparecer (escala con rebote) a partir de t0.
+function pop(s, x, y, size, color, t, t0, o = {}) {
+  const k = seg(t, t0, t0 + 0.32)
+  if (k <= 0) return
+  text(s, x, y, size, color, { ...o, scale: outBack(k) * (o.scale ?? 1), alpha: clamp(k * 3) })
+}
+
+// ---------- imágenes (PokéAPI permite CORS: el canvas no queda manchado) ----------
+const SPR = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites'
+const imgs = {}
+function load(key, url) {
+  return new Promise((res) => {
+    const i = new Image(); i.crossOrigin = 'anonymous'
+    i.onload = () => { imgs[key] = i; res() }; i.onerror = () => res(); i.src = url
+  })
+}
+const mon = (id, shiny) => imgs[(shiny ? 's' : 'n') + id]
+const silCache = {}
+function silhouette(id) {
+  if (silCache[id]) return silCache[id]
+  const i = mon(id); if (!i) return null
+  const c = document.createElement('canvas'); c.width = i.width; c.height = i.height
+  const x = c.getContext('2d'); x.drawImage(i, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#1c2450'; x.fillRect(0, 0, c.width, c.height)
+  return (silCache[id] = c)
+}
+function sprite(id, x, y, size, o = {}) {
+  const i = o.sil ? silhouette(id) : mon(id, o.shiny)
+  if (!i) return
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha *= o.alpha ?? 1
+  ctx.translate(x, y); if (o.rot) ctx.rotate(o.rot); const s = o.scale ?? 1; ctx.scale(o.flip ? -s : s, s)
+  ctx.drawImage(i, -size / 2, -size / 2, size, size); ctx.restore()
+}
+function item(name, x, y, size, o = {}) {
+  const i = imgs['i' + name]; if (!i) return
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha *= o.alpha ?? 1; ctx.translate(x, y); if (o.rot) ctx.rotate(o.rot); ctx.scale(o.scale ?? 1, o.scale ?? 1)
+  ctx.drawImage(i, -size / 2, -size / 2, size, size); ctx.restore()
+}
+
+// ---------- piezas dibujadas ----------
+function pokeball(x, y, r, open = 0, rot = 0) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot)
+  const gap = open * r * 0.9
+  ctx.lineWidth = r * 0.12; ctx.strokeStyle = '#111'
+  ctx.save(); ctx.translate(0, -gap); ctx.beginPath(); ctx.arc(0, 0, r, Math.PI, 0); ctx.closePath(); ctx.fillStyle = '#e3242b'; ctx.fill(); ctx.stroke(); ctx.restore()
+  ctx.save(); ctx.translate(0, gap); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI); ctx.closePath(); ctx.fillStyle = '#f4f4f4'; ctx.fill(); ctx.stroke(); ctx.restore()
+  if (open < 0.05) { ctx.beginPath(); ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, r * 0.14, 0, Math.PI * 2); ctx.fillStyle = '#ddd'; ctx.fill() }
+  ctx.restore()
+}
+function lcd(x, y, w, h) {
+  rr(x, y, w, h, 22); ctx.fillStyle = '#9bbc0f'; ctx.fill(); ctx.lineWidth = 8; ctx.strokeStyle = '#1f3b12'; ctx.stroke()
+  ctx.save(); rr(x, y, w, h, 22); ctx.clip(); ctx.globalAlpha = 0.08; for (let i = y; i < y + h; i += 8) { ctx.fillStyle = '#000'; ctx.fillRect(x, i, w, 3) } ctx.restore()
+}
+function card(x, y, w, h, color, alpha = 1) {
+  ctx.save(); ctx.globalAlpha *= alpha
+  rr(x, y, w, h, 34); ctx.fillStyle = '#182150'; ctx.fill(); ctx.lineWidth = 7; ctx.strokeStyle = color; ctx.stroke()
+  ctx.restore()
+}
+function typePill(type, x, y, size = 30) {
+  const label = TYPE_ES[type] ?? type
+  ctx.font = `700 ${size}px FR`; const w = ctx.measureText(label).width + size
+  rr(x, y - size * 0.7, w, size * 1.4, size * 0.7); ctx.fillStyle = TYPE[type]; ctx.fill()
+  text(label, x + w / 2, y, size, type === 'electric' || type === 'ice' || type === 'ground' || type === 'steel' ? '#1b1d26' : '#fff')
+  return w
+}
+function check(x, y, s, k, color = '#3ddc84') {
+  if (k <= 0) return
+  ctx.save(); ctx.translate(x, y); ctx.scale(outBack(k), outBack(k))
+  ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill()
+  ctx.lineWidth = s * 0.28; ctx.strokeStyle = '#fff'; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  ctx.beginPath(); ctx.moveTo(-s * 0.45, 0); ctx.lineTo(-s * 0.1, s * 0.35); ctx.lineTo(s * 0.5, -s * 0.35); ctx.stroke(); ctx.restore()
+}
+function burst(x, y, t, t0, color = '#ffcb05', n = 14, len = 260) {
+  const k = seg(t, t0, t0 + 0.45); if (k <= 0 || k >= 1) return
+  ctx.save(); ctx.translate(x, y); ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.lineWidth = 16 * (1 - k); ctx.globalAlpha = 1 - k
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; const r0 = len * 0.3 + len * outCubic(k) * 0.6, r1 = r0 + len * 0.35 * (1 - k); ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.stroke() }
+  ctx.restore()
+}
+function confetti(t, t0, seed = 1, n = 90) {
+  const k = t - t0; if (k < 0 || k > 2.4) return
+  const r = rnd(seed); const cols = ['#ffcb05', '#e3242b', '#3ddc84', '#29a8ff', '#ff7ab8', '#fff']
+  for (let i = 0; i < n; i++) {
+    const vx = (r() - 0.5) * 1700, vy = -900 - r() * 1300, sp = (r() - 0.5) * 14, c = cols[i % cols.length], w = 16 + r() * 18
+    const x = W / 2 + vx * k, y = H * 0.55 + vy * k + 1500 * k * k
+    ctx.save(); ctx.translate(x, y); ctx.rotate(sp * k); ctx.fillStyle = c; ctx.globalAlpha = clamp(2.4 - k); ctx.fillRect(-w / 2, -w / 4, w, w / 2); ctx.restore()
+  }
+}
+function sparkles(x, y, t, seed, n = 10, spread = 220) {
+  const r = rnd(seed)
+  for (let i = 0; i < n; i++) {
+    const ph = r() * 6, sx = x + (r() - 0.5) * spread * 2, sy = y + (r() - 0.5) * spread * 2, s = 10 + r() * 22
+    const a = Math.max(0, Math.sin(t * 7 + ph))
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(t * 2 + ph); ctx.globalAlpha = a; ctx.fillStyle = '#fff6b0'
+    ctx.beginPath(); for (let j = 0; j < 8; j++) { const rr2 = j % 2 ? s * 0.25 : s; const an = (j / 8) * Math.PI * 2; ctx.lineTo(Math.cos(an) * rr2, Math.sin(an) * rr2) } ctx.fill(); ctx.restore()
+  }
+}
+function phone(x, y, w, h) {
+  rr(x - 14, y - 14, w + 28, h + 28, 70); ctx.fillStyle = '#0b0f22'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#3a4380'; ctx.stroke()
+  rr(x, y, w, h, 56); ctx.fillStyle = '#0e1430'; ctx.fill()
+  rr(x + w / 2 - 70, y + 18, 140, 30, 15); ctx.fillStyle = '#000'; ctx.fill()
+}
+function ds3(x, y, s, t) {
+  // Consola dibujada a mano (estilo 3DS, sin logos): tapa con pantalla superior y base.
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s)
+  rr(-330, -470, 660, 430, 40); ctx.fillStyle = '#1d2a5e'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = '#33438f'; ctx.stroke()
+  rr(-270, -425, 540, 330, 16); ctx.fillStyle = '#05070f'; ctx.fill()
+  rr(-330, -30, 660, 450, 40); ctx.fillStyle = '#22306b'; ctx.fill(); ctx.stroke()
+  rr(-190, 10, 380, 290, 14); ctx.fillStyle = '#05070f'; ctx.fill()
+  ctx.beginPath(); ctx.arc(-260, 90, 42, 0, Math.PI * 2); ctx.fillStyle = '#111733'; ctx.fill()
+  ctx.beginPath(); ctx.arc(-260, 90, 28, 0, Math.PI * 2); ctx.fillStyle = '#3a4380'; ctx.fill()
+  const btn = [[265, 50, '#e3242b'], [235, 80, '#ffcb05'], [295, 80, '#29a8ff'], [265, 110, '#3ddc84']]
+  for (const [bx, by, c] of btn) { ctx.beginPath(); ctx.arc(bx, by, 17, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill() }
+  rr(-30, 330, 60, 16, 8); ctx.fillStyle = '#3a4380'; ctx.fill()
+  ctx.restore()
+}
+
+// ---------- fondo ----------
+function background(t, a, b) {
+  const g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, a); g.addColorStop(1, b); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+  // franjas diagonales que se mueven
+  ctx.save(); ctx.globalAlpha = 0.07; ctx.fillStyle = '#fff'; ctx.translate(W / 2, H / 2); ctx.rotate(-0.5)
+  const off = (t * 220) % 240
+  for (let i = -14; i < 14; i++) ctx.fillRect(-2000, i * 240 + off, 4000, 90)
+  ctx.restore()
+  // Poké Balls de fondo flotando
+  const r = rnd(7)
+  ctx.save(); ctx.globalAlpha = 0.09
+  for (let i = 0; i < 9; i++) { const x = r() * W, y = ((r() * H + t * (60 + r() * 90)) % (H + 300)) - 150, s = 40 + r() * 70; pokeball(x, H - y, s, 0, t * (r() - 0.5) * 2) }
+  ctx.restore()
+}
+
+// ---------- escenas ----------
+const TEAM = [
+  { id: 555, n: 'Darmanitan', l: 51, t: ['fire'] },
+  { id: 537, n: 'Seismitoad', l: 51, t: ['water', 'ground'] },
+  { id: 642, n: 'Thundurus', l: 51, t: ['electric', 'flying'] },
+  { id: 584, n: 'Vanilluxe', l: 51, t: ['ice'] },
+  { id: 591, n: 'Amoonguss', l: 51, t: ['grass', 'poison'] },
+  { id: 530, n: 'Excadrill', l: 53, t: ['ground', 'steel'] },
+]
+const GAMES = ['ROJO', 'ORO', 'RUBÍ', 'DIAMANTE', 'BLANCO', 'X', 'SOL', 'ESPADA', 'ESCARLATA', 'Z-A']
+const LEGENDS = [150, 250, 383, 483, 643, 716, 791, 888, 1007, 718]
+const ACC = '#ffcb05'
+
+const SCENES = [
+  { beats: 5, bg: ['#e3242b', '#7a0a14'], draw(t) {
+    const k = seg(t, 0, 0.5), open = outCubic(seg(t, 0.95, 1.35))
+    const r = 150 * outBack(k)
+    if (open > 0) { ctx.save(); ctx.globalAlpha = open * (1 - seg(t, 1.35, 2)); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(W / 2, 1150, 600 * open, 0, Math.PI * 2); ctx.fill(); ctx.restore() }
+    pokeball(W / 2, 1150, r, open, (1 - k) * -6 + (open ? 0 : Math.sin(t * 20) * 0.08 * seg(t, 0.5, 0.95)))
+    burst(W / 2, 1150, t, 1.0, '#fff', 18, 500)
+    const pj = seg(t, 1.0, 1.5)
+    if (pj > 0) sprite(25, W / 2, 1130 + Math.sin(t * 9) * 12, 720, { scale: outBack(pj) })
+    pop('TU PARTIDA', W / 2, 430, 120, '#fff', t, 0.15, { stroke: '#7a0a14' })
+    pop('DE POKÉMON', W / 2, 570, 120, '#fff', t, 0.4, { stroke: '#7a0a14' })
+    const sh = t > 1.0 && t < 1.4 ? Math.sin(t * 90) * 14 : 0
+    pop('EDITADA', W / 2 + sh, 760, 190, ACC, t, 1.0, { stroke: '#1b1d26', strokeW: 26, rot: -0.04 })
+    pop('en el navegador', W / 2, 1500, 76, '#fff', t, 1.35, { stroke: '#7a0a14' })
+    pop('sin instalar nada', W / 2, 1600, 54, '#ffd6d6', t, 1.7)
+  } },
+  { beats: 5, bg: ['#0e1430', '#243a8f'], draw(t) {
+    // Pokédex
+    const k = outBack(seg(t, 0, 0.4)), x = W / 2, y = 1060
+    ctx.save(); ctx.translate(x, y); ctx.scale(k, k)
+    rr(-380, -420, 760, 840, 60); ctx.fillStyle = '#e3242b'; ctx.fill(); ctx.lineWidth = 10; ctx.strokeStyle = '#7a0a14'; ctx.stroke()
+    ctx.beginPath(); ctx.arc(-260, -320, 62, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.beginPath(); ctx.arc(-260, -320, 48, 0, Math.PI * 2); ctx.fillStyle = t % 0.5 < 0.25 ? '#29a8ff' : '#6fcbff'; ctx.fill()
+    for (const [cx, c] of [[-150, '#ff5a5a'], [-95, '#ffcf33'], [-40, '#3ddc84']]) { ctx.beginPath(); ctx.arc(cx, -350, 18, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill() }
+    ctx.restore()
+    lcd(x - 300 * k, y - 220 * k, 600 * k, 470 * k)
+    if (t > 0.85) {
+      const g = Math.floor(seg(t, 1.0, 2.2) * (GAMES.length - 1))
+      pop('¡PARTIDA', x, y - 110, 54, '#1f3b12', t, 0.85, { px: true })
+      pop('ATRAPADA!', x, y - 30, 54, '#1f3b12', t, 0.95, { px: true })
+      if (t > 1.0) { const lk = 1 - ((t - 1) % 0.12) / 0.12; sprite(LEGENDS[g], x, y - 510, 280, { scale: 1 + 0.25 * lk }) }
+      if (t > 1.0) text(GAMES[g], x, y + 110, GAMES[g].length > 7 ? 60 : 78, '#1f3b12', { px: true, scale: 1 + 0.15 * (1 - ((t - 1) % 0.12) / 0.12) })
+    }
+    // archivo .sav cayendo
+    const f = seg(t, 0.05, 0.75)
+    if (f < 1) {
+      const fy = lerp(-200, y - 100, outCubic(f)), fs = 1 - 0.6 * seg(t, 0.55, 0.75)
+      ctx.save(); ctx.translate(x, fy); ctx.scale(fs, fs); ctx.rotate((1 - f) * 0.6)
+      rr(-110, -140, 220, 280, 22); ctx.fillStyle = '#fff'; ctx.fill(); ctx.fillStyle = '#29a8ff'; rr(-110, 60, 220, 80, 0); ctx.fill()
+      text('.sav', 0, 100, 56, '#fff', { px: false }); text('💾', 0, -30, 110); ctx.restore()
+    }
+    burst(x, y - 100, t, 0.75, ACC, 16, 420)
+    pop('SUBE TU PARTIDA', W / 2, 300, 96, '#fff', t, 0.1, { stroke: '#0e1430' })
+    pop('GEN 1 → 9', W / 2, 1640, 110, ACC, t, 1.1, { stroke: '#0e1430', strokeW: 20 })
+  } },
+  { beats: 6, bg: ['#141a3d', '#3b1f6b'], draw(t) {
+    pop('TU EQUIPO', W / 2, 260, 130, '#fff', t, 0, { stroke: '#141a3d' })
+    TEAM.forEach((m, i) => {
+      const col = i % 2, row = Math.floor(i / 2), t0 = 0.15 + i * 0.13
+      const k = outBack(seg(t, t0, t0 + 0.45)), dir = col ? 1 : -1
+      const cx = 290 + col * 500, cy = 560 + row * 400
+      const x = cx + dir * (1 - k) * 900
+      card(x - 225, cy - 175, 450, 350, TYPE[m.t[0]], clamp(k))
+      const bob = Math.sin(t * 6 + i) * 10
+      sprite(m.id, x - 80, cy - 30 + bob, 230, { alpha: clamp(k) })
+      text(m.n, x + 85, cy - 95, 44, '#fff', { alpha: clamp(k), align: 'center' })
+      text('Nv. ' + m.l, x + 85, cy - 40, 36, '#a8b0d6', { alpha: clamp(k) })
+      let px = x - 200
+      ctx.save(); ctx.globalAlpha = clamp(k); for (const ty of m.t) px += typePill(ty, px, cy + 120, 30) + 12; ctx.restore()
+    })
+    pop('edita cada Pokémon', W / 2, 1720, 70, ACC, t, 1.6, { stroke: '#141a3d' })
+  } },
+  { beats: 6, bg: ['#7a1a0a', '#e3242b'], draw(t) {
+    const shiny = t > 1.55
+    const k = outBack(seg(t, 0, 0.4))
+    ctx.save(); ctx.globalAlpha = 0.35; ctx.fillStyle = shiny ? '#ffcb05' : '#fff'; ctx.beginPath(); ctx.arc(W / 2, 640, 330 * k + Math.sin(t * 8) * 10, 0, Math.PI * 2); ctx.fill(); ctx.restore()
+    sprite(555, W / 2, 640, 600, { shiny, scale: k * (shiny ? 1 + 0.12 * (1 - seg(t, 1.55, 1.9)) : 1) })
+    if (shiny) sparkles(W / 2, 640, t, 3, 14, 300)
+    burst(W / 2, 640, t, 1.55, '#fff6b0', 20, 520)
+    // nivel
+    lcd(140, 1010, 800, 200)
+    const lvl = Math.round(lerp(51, 100, inOut(seg(t, 0.25, 1.3))))
+    text('NIVEL', 330, 1110, 54, '#1f3b12', { px: true })
+    text(String(lvl), 740, 1110, 110, '#1f3b12', { px: true, scale: lvl === 100 ? 1 + 0.2 * (1 - seg(t, 1.3, 1.6)) : 1 })
+    pop('¡SHINY!', W / 2, 260, 150, '#ffcb05', t, 1.55, { stroke: '#4a0d00', strokeW: 24, rot: -0.06 })
+    if (t < 1.55) pop('NIVEL 100', W / 2, 260, 130, '#fff', t, 0.1, { stroke: '#4a0d00' })
+    // IVs
+    const stats = ['PS', 'ATQ', 'DEF', 'AtE', 'DfE', 'VEL']
+    stats.forEach((s, i) => {
+      const y = 1300 + i * 82, f = outCubic(seg(t, 0.9 + i * 0.1, 1.5 + i * 0.1))
+      text(s, 200, y, 42, '#fff', { align: 'right' })
+      rr(230, y - 22, 640, 44, 22); ctx.fillStyle = 'rgb(0 0 0 / .35)'; ctx.fill()
+      rr(230, y - 22, 640 * f, 44, 22); ctx.fillStyle = f > 0.99 ? '#3ddc84' : '#ffcf33'; ctx.fill()
+      text(String(Math.round(31 * f)), 930, y, 42, '#fff', { align: 'center' })
+    })
+  } },
+  { beats: 5, bg: ['#0f3b2a', '#1d8a5a'], draw(t) {
+    pop('MOCHILA', W / 2, 260, 140, '#fff', t, 0, { stroke: '#0f3b2a' })
+    const items = ['rare-candy', 'master-ball', 'potion', 'max-revive', 'pp-up', 'leftovers', 'ultra-ball', 'nugget', 'lucky-egg', 'choice-scarf']
+    const r = rnd(11)
+    for (let i = 0; i < 26; i++) {
+      const name = items[i % items.length], x = 80 + r() * (W - 160), d = r() * 1.2, sp = 1600 + r() * 900
+      const y = -120 + (t - d) * sp; if (t < d || y > H + 100) continue
+      item(name, x, y, 150, { rot: (t - d) * (r() - 0.5) * 6 })
+    }
+    const k = outBack(seg(t, 0.35, 0.7))
+    card(120, 760, 840, 420, '#ffcb05', clamp(k))
+    item('rare-candy', 300, 970, 300 * k)
+    const n = Math.round(999 * inOut(seg(t, 0.6, 1.6)))
+    text('Caramelo Raro', 640, 900, 56, '#fff', { alpha: clamp(k) })
+    text('×' + n, 640, 1040, 120, '#ffcb05', { px: true, alpha: clamp(k), scale: n === 999 ? 1 + 0.2 * (1 - seg(t, 1.6, 1.9)) : 1 })
+    burst(640, 1040, t, 1.6, '#ffcb05', 14, 360)
+    pop('solo objetos que existen en tu juego', W / 2, 1420, 52, '#d9ffe9', t, 1.2)
+  } },
+  { beats: 6, bg: ['#0e1430', '#1f5fa8'], draw(t) {
+    pop('POKÉDEX', W / 2, 230, 140, '#fff', t, 0, { stroke: '#0e1430' })
+    const cols = 6, rows = 8, size = 150, ox = (W - cols * size) / 2 + size / 2, oy = 420
+    const fill = seg(t, 0.3, 2.0)
+    for (let i = 0; i < cols * rows; i++) {
+      const c = i % cols, rw = Math.floor(i / cols), id = 494 + i * 3
+      const d = (c + rw) / (cols + rows), on = fill > d
+      const pk = on ? outBack(clamp((fill - d) * 8)) : 1
+      sprite(id, ox + c * size, oy + rw * size, 150, { sil: !on, scale: pk })
+    }
+    const n = Math.round(156 * fill)
+    rr(140, 1640, 800, 150, 40); ctx.fillStyle = '#9bbc0f'; ctx.fill()
+    text(`TESELIA ${n}/156`, W / 2, 1715, 50, '#1f3b12', { px: true })
+    if (t > 2.05) pop('¡COMPLETA!', W / 2, 1000, 170, '#ffcb05', t, 2.05, { stroke: '#0e1430', strokeW: 28, rot: -0.08 })
+    confetti(t, 2.05, 5)
+  } },
+  { beats: 6, bg: ['#3b1f6b', '#7c3aed'], draw(t) {
+    pop('¿QUÉ TE FALTA?', W / 2, 260, 110, '#fff', t, 0, { stroke: '#2a1450' })
+    pop('y dónde conseguirlo', W / 2, 380, 64, '#e9d8ff', t, 0.25)
+    const rows = [
+      { id: 610, n: 'Axew', tag: 'Salvaje', c: '#3ddc84', d: 'Ruta 11 · Nv. 22–25 · Hierba' },
+      { id: 246, n: 'Larvitar', tag: 'Solo en Escarlata', c: '#ff8a3d', d: 'Intercámbialo con un amigo' },
+      { id: 570, n: 'Zorua', tag: 'Evento', c: '#ff7ab8', d: 'Solo con un evento oficial' },
+    ]
+    rows.forEach((r, i) => {
+      const t0 = 0.35 + i * 0.35, k = outBack(seg(t, t0, t0 + 0.45)), y = 640 + i * 330, x = (1 - k) * (i % 2 ? 1200 : -1200)
+      card(90 + x, y - 140, 900, 280, r.c, clamp(k))
+      sprite(r.id, 230 + x, y, 230, { alpha: clamp(k) })
+      text(r.n, 420 + x, y - 60, 58, '#fff', { align: 'left', alpha: clamp(k) })
+      ctx.save(); ctx.globalAlpha = clamp(k); ctx.font = '700 34px FR'; const w = ctx.measureText(r.tag).width + 40; rr(420 + x, y - 16, w, 56, 28); ctx.fillStyle = r.c; ctx.fill(); ctx.restore()
+      text(r.tag, 440 + x, y + 12, 34, '#1b1d26', { align: 'left', alpha: clamp(k) })
+      const typed = r.d.slice(0, Math.floor(seg(t, t0 + 0.4, t0 + 1.0) * r.d.length))
+      text(typed, 420 + x, y + 85, 36, '#e9d8ff', { align: 'left', weight: 600 })
+    })
+    // lupa
+    const lx = W / 2 + Math.sin(t * 3) * 300, ly = 1620
+    ctx.save(); ctx.lineWidth = 22; ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(lx, ly, 70, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(lx + 50, ly + 50); ctx.lineTo(lx + 120, ly + 120); ctx.stroke(); ctx.restore()
+    pop('en TODOS los juegos', W / 2, 1500, 70, '#ffcb05', t, 1.8, { stroke: '#2a1450' })
+  } },
+  { beats: 5, bg: ['#5a3a00', '#c98a00'], draw(t) {
+    pop('OBJETOS Y MT', W / 2, 260, 120, '#fff', t, 0, { stroke: '#4a2f00' })
+    const rows = [
+      ['MT01', 'Puño Certero', 'fighting', true],
+      ['MO03', 'Surf', 'water', true],
+      ['MT26', 'Terremoto', 'ground', true],
+      ['Caramelo Raro', 'Ruta 108 · oculto', null, false],
+    ]
+    rows.forEach(([a, b, ty, done], i) => {
+      const t0 = 0.2 + i * 0.25, k = outCubic(seg(t, t0, t0 + 0.35)), y = 560 + i * 240
+      ctx.save(); ctx.globalAlpha = k; ctx.translate((1 - k) * 300, 0)
+      rr(90, y - 95, 900, 190, 34); ctx.fillStyle = '#182150'; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = done ? '#3ddc84' : '#ffcf33'; ctx.stroke()
+      text(a, 140, y - 30, 56, '#fff', { align: 'left' })
+      if (ty) { ctx.font = '700 36px FR'; const w = ctx.measureText(b).width + 40; rr(140, y + 12, w, 60, 30); ctx.fillStyle = TYPE[ty]; ctx.fill(); text(b, 160, y + 42, 36, '#fff', { align: 'left' }) } else text(b, 140, y + 40, 40, '#ffe7a3', { align: 'left', weight: 600 })
+      ctx.restore()
+      if (done) check(900, y, 52, seg(t, t0 + 0.4, t0 + 0.7))
+      else pop('PENDIENTE', 830, y, 34, '#ffcf33', t, t0 + 0.5, { px: true })
+    })
+    pop('sabe lo que ya has cogido', W / 2, 1560, 66, '#fff', t, 1.4, { stroke: '#4a2f00' })
+  } },
+  { beats: 6, bg: ['#0e1430', '#c2185b'], draw(t) {
+    pop('COMPARTE', W / 2, 230, 140, '#fff', t, 0, { stroke: '#4a0a2a' })
+    pop('TU EQUIPO', W / 2, 370, 120, '#ffcb05', t, 0.15, { stroke: '#4a0a2a' })
+    const k = outBack(seg(t, 0.2, 0.7)), px = W / 2 - 300, py = 520 + (1 - k) * 1400
+    phone(px, py, 600, 1080)
+    ctx.save(); rr(px, py, 600, 1080, 56); ctx.clip()
+    text('Fl3xix', px + 300, py + 140, 60, '#fff'); text('Blanco', px + 300, py + 200, 36, '#ffcb05')
+    TEAM.forEach((m, i) => {
+      const kk = outBack(seg(t, 0.6 + i * 0.08, 0.9 + i * 0.08)), x = px + 160 + (i % 2) * 280, y = py + 350 + Math.floor(i / 2) * 230
+      rr(x - 120, y - 100, 240, 200, 26); ctx.fillStyle = '#182150'; ctx.fill(); ctx.lineWidth = 5; ctx.strokeStyle = TYPE[m.t[0]]; ctx.stroke()
+      sprite(m.id, x, y - 10, 170, { scale: kk })
+      text(m.n, x, y + 75, 28, '#fff')
+    })
+    ctx.restore()
+    // iconos volando hacia fuera
+    const icons = [['🔗', 'Enlace'], ['🖼️', 'Imagen'], ['⚔️', 'Showdown']]
+    icons.forEach(([e, l], i) => {
+      const t0 = 1.3 + i * 0.22, f = outBack(seg(t, t0, t0 + 0.4)), side = i === 1 ? 0 : i === 0 ? -1 : 1
+      if (f <= 0) return
+      const x = W / 2 + side * 380 * f, y = 1650 - (i === 1 ? 90 : 0) * f
+      ctx.save(); ctx.translate(x, y); ctx.scale(f, f); rr(-120, -90, 240, 180, 40); ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore()
+      text(e, x, y - 25, 80 * f); text(l, x, y + 55, 34 * f, '#1b1d26')
+    })
+  } },
+  { beats: 9, bg: ['#05070f', '#1d2a5e'], draw(t) {
+    pop('Y DESDE TU 3DS', W / 2, 200, 110, '#fff', t, 0, { stroke: '#05070f' })
+    const k = outBack(seg(t, 0.1, 0.6))
+    const cx = 400, cy = 900, s = 0.95 * k
+    ds3(cx, cy, s, t)
+    // pantalla superior: consola de PokeSave Link
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s)
+    const lines = [['PokeSave Link', '#ff5a5a'], ['Pokémon X', '#fff'], ['', '#fff'], ['Abre en el móvil:', '#a8b0d6'], ['192.168.1.50:8000', '#29a8ff'], ['PIN: 4821', '#ffcb05']]
+    const shown = seg(t, 0.6, 1.6) * lines.length
+    lines.forEach(([l, c], i) => { if (i < shown) text(l.slice(0, Math.ceil((shown - i) * 22)), -245, -385 + i * 50, 34, c, { align: 'left', px: false, weight: 600 }) })
+    // pantalla inferior
+    if (t > 3.05) { text('¡Guardado!', 0, 100, 44, '#3ddc84'); text('Copia en la SD ✓', 0, 170, 30, '#fff') }
+    else if (t > 0.6) { text('Copia de seguridad', 0, 110, 30, '#a8b0d6'); check(0, 190, 30, seg(t, 0.8, 1.1)) }
+    ctx.restore()
+    // wifi hacia el móvil
+    if (t > 1.6 && t < 3.3) {
+      for (let i = 0; i < 3; i++) {
+        const ph = ((t * 2 + i / 3) % 1)
+        ctx.save(); ctx.globalAlpha = 1 - ph; ctx.lineWidth = 14; ctx.strokeStyle = '#29a8ff'; ctx.beginPath(); ctx.arc(cx + 260, cy - 300, 60 + ph * 260, -0.6, 0.6); ctx.stroke(); ctx.restore()
+      }
+    }
+    // móvil
+    const pk = outBack(seg(t, 1.6, 2.0)), mx = 720, my = 820 + (1 - pk) * 1500
+    phone(mx, my, 300, 600)
+    ctx.save(); rr(mx, my, 300, 600, 56); ctx.clip()
+    text('🎮 Conectado', mx + 150, my + 110, 30, '#fff'); text('a tu 3DS', mx + 150, my + 150, 30, '#fff')
+    sprite(658, mx + 150, my + 280, 170)
+    const pressed = t > 2.3 && t < 2.45
+    rr(mx + 30, my + 400, 240, 80, 40); ctx.fillStyle = pressed ? '#9e0f1b' : '#e3242b'; ctx.fill()
+    text('Guardar en', mx + 150, my + 428, 26, '#fff'); text('la 3DS', mx + 150, my + 458, 26, '#fff')
+    const prog = seg(t, 2.45, 3.05)
+    if (prog > 0) { rr(mx + 30, my + 510, 240, 22, 11); ctx.fillStyle = '#2a3366'; ctx.fill(); rr(mx + 30, my + 510, 240 * prog, 22, 11); ctx.fillStyle = '#3ddc84'; ctx.fill() }
+    ctx.restore()
+    // dedo
+    if (t > 2.0 && t < 2.6) { const f = seg(t, 2.0, 2.3); text('👆', mx + 160, my + 560 - 80 * f, 110) }
+    burst(cx, cy - 250, t, 3.05, '#3ddc84', 18, 520)
+    pop('¡SOBRESCRITA!', W / 2, 1560, 110, '#3ddc84', t, 3.1, { stroke: '#05070f', strokeW: 22, rot: -0.05 })
+    pop('con copia de seguridad', W / 2, 1680, 56, '#fff', t, 3.35)
+    text('simulación', W - 70, 1800, 26, '#6b7399', { align: 'right' })
+  } },
+  { beats: 7, bg: ['#e3242b', '#5a0612'], draw(t) {
+    const k = outElastic(seg(t, 0, 0.9))
+    pokeball(W / 2, 470, 150 * k, 0, (1 - seg(t, 0, 0.6)) * 8)
+    pop('PokeSave', W / 2, 760, 170, '#fff', t, 0.2, { stroke: '#5a0612', strokeW: 28, glow: '#ffcb05' })
+    const items = ['Gen 1 → 9', 'Gratis', 'Sin instalar nada', 'Tu partida no sale de tu móvil']
+    items.forEach((s, i) => {
+      const t0 = 0.6 + i * 0.22, y = 960 + i * 115
+      check(150, y, 38, seg(t, t0, t0 + 0.3), '#ffcb05')
+      const kk = outCubic(seg(t, t0, t0 + 0.3))
+      text(s, 220 + (1 - kk) * 200, y, 58, '#fff', { align: 'left', alpha: kk })
+    })
+    const kp = outBack(seg(t, 1.7, 2.1))
+    ctx.save(); ctx.translate(W / 2, 1520); ctx.scale(kp, kp)
+    rr(-470, -80, 940, 160, 80); ctx.fillStyle = '#9bbc0f'; ctx.fill(); ctx.lineWidth = 8; ctx.strokeStyle = '#1f3b12'; ctx.stroke()
+    text('vchaconwebs.github.io', 0, -22, 40, '#1f3b12', { px: true }); text('/pokesave', 0, 38, 40, '#1f3b12', { px: true })
+    ctx.restore()
+    confetti(t, 1.75, 9, 120)
+    pop('¡PRUÉBALO!', W / 2, 1720, 90, ACC, t, 2.2, { stroke: '#5a0612', strokeW: 18, scale: 1 + 0.06 * Math.sin(t * 16) })
+  } },
+]
+let acc = 0
+for (const s of SCENES) { s.start = acc; s.dur = s.beats * BEAT; acc += s.dur }
+const TOTAL = acc
+
+function frame(t) {
+  let i = SCENES.findIndex((s) => t < s.start + s.dur); if (i < 0) i = SCENES.length - 1
+  const s = SCENES[i], lt = t - s.start
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.globalAlpha = 1
+  background(t, ...s.bg)
+  // golpe de cámara en cada cambio de escena y pulso suave en cada tiempo
+  const punch = i > 0 ? 1 - outCubic(seg(lt, 0, 0.3)) : 0
+  const beatK = 1 - ((t % BEAT) / BEAT)
+  const zoom = 1 + punch * 0.12 + Math.pow(beatK, 4) * 0.012
+  const shake = punch * 18
+  ctx.save()
+  ctx.translate(W / 2 + Math.sin(t * 97) * shake, H / 2 + Math.cos(t * 83) * shake)
+  ctx.scale(zoom, zoom); ctx.translate(-W / 2, -H / 2)
+  s.draw(lt)
+  ctx.restore()
+  // destello y barrido de color al entrar
+  if (i > 0 && lt < 0.2) { ctx.fillStyle = `rgba(255,255,255,${0.75 * (1 - lt / 0.2)})`; ctx.fillRect(0, 0, W, H) }
+  if (i > 0 && lt < 0.22) {
+    const k = outCubic(lt / 0.22); ctx.fillStyle = ACC
+    ctx.beginPath(); ctx.moveTo(W * 2 * k - W * 0.6, 0); ctx.lineTo(W * 2 * k, 0); ctx.lineTo(W * 2 * k - W * 0.8, H); ctx.lineTo(W * 2 * k - W * 1.4, H); ctx.fill()
+  }
+  // viñeta
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.75); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H)
+}
+
+// ---------- música (chiptune generada) ----------
+async function music() {
+  const sr = 44100, len = TOTAL + 0.8
+  const ac = new OfflineAudioContext(2, Math.ceil(sr * len), sr)
+  const master = ac.createGain(); master.gain.value = 0.8; master.connect(ac.destination)
+  const comp = ac.createDynamicsCompressor(); comp.connect(master)
+  const noiseBuf = ac.createBuffer(1, sr, sr); const nd = noiseBuf.getChannelData(0); const r = rnd(3); for (let i = 0; i < nd.length; i++) nd[i] = r() * 2 - 1
+  const noise = (t, dur, type, freq, gain, sweepTo) => {
+    const s = ac.createBufferSource(); s.buffer = noiseBuf
+    const f = ac.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur)
+    const g = ac.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur)
+    s.connect(f); f.connect(g); g.connect(comp); s.start(t); s.stop(t + dur)
+  }
+  const tone = (t, dur, freq, type, gain, slideTo) => {
+    const o = ac.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t); if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur)
+    const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur)
+    o.connect(g); g.connect(comp); o.start(t); o.stop(t + dur + 0.02)
+  }
+  const midi = (n) => 440 * Math.pow(2, (n - 69) / 12)
+  const chords = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]] // Am F C G
+  const beats = Math.floor(TOTAL / BEAT)
+  for (let b = 0; b < beats; b++) {
+    const t = b * BEAT, ch = chords[Math.floor(b / 4) % 4]
+    tone(t, 0.18, 150, 'sine', 0.9, 40) // bombo
+    if (b % 2 === 1) noise(t, 0.16, 'bandpass', 1800, 0.45) // caja
+    for (let h = 0; h < 2; h++) noise(t + h * BEAT / 2, 0.04, 'highpass', 7000, 0.18) // charles
+    for (let e = 0; e < 2; e++) tone(t + e * BEAT / 2, BEAT / 2 * 0.9, midi(ch[0] - 24 + (e ? 12 : 0)), 'square', 0.13) // bajo
+    for (let s = 0; s < 4; s++) tone(t + s * BEAT / 4, BEAT / 4 * 0.8, midi(ch[s % 3] + 12 + (s === 3 ? 12 : 0)), 'square', 0.045) // arpegio
+  }
+  // efectos en los cambios de escena y momentos clave
+  SCENES.forEach((s, i) => { if (i) noise(s.start - 0.25, 0.3, 'bandpass', 400, 0.5, 6000) })
+  const ding = (t) => { tone(t, 0.5, 1318, 'triangle', 0.25); tone(t + 0.07, 0.6, 1975, 'triangle', 0.18) }
+  ding(SCENES[1].start + 0.85); ding(SCENES[3].start + 1.55); ding(SCENES[5].start + 2.05); ding(SCENES[9].start + 3.05); ding(SCENES[10].start + 1.75)
+  tone(SCENES[0].start + 1.0, 0.8, 80, 'sine', 1.0, 30)
+  tone(TOTAL - 0.3, 1.0, 110, 'sine', 0.9, 40)
+  const buf = await ac.startRendering()
+  // WAV 16 bits estéreo
+  const n = buf.length, out = new DataView(new ArrayBuffer(44 + n * 4))
+  const w = (o, s) => [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)))
+  w(0, 'RIFF'); out.setUint32(4, 36 + n * 4, true); w(8, 'WAVE'); w(12, 'fmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 2, true)
+  out.setUint32(24, sr, true); out.setUint32(28, sr * 4, true); out.setUint16(32, 4, true); out.setUint16(34, 16, true); w(36, 'data'); out.setUint32(40, n * 4, true)
+  const L = buf.getChannelData(0), R = buf.getChannelData(1)
+  for (let i = 0; i < n; i++) { out.setInt16(44 + i * 4, clamp(L[i], -1, 1) * 32767, true); out.setInt16(46 + i * 4, clamp(R[i], -1, 1) * 32767, true) }
+  return new Blob([out], { type: 'audio/wav' })
+}
+
+// ---------- arranque ----------
+const ui = document.getElementById('ui')
+async function preload() {
+  await Promise.all([new FontFace('PX', "url('/web/node_modules/@fontsource/press-start-2p/files/press-start-2p-latin-400-normal.woff2')").load().then((f) => document.fonts.add(f)), new FontFace('FR', "url('/web/node_modules/@fontsource-variable/fredoka/files/fredoka-latin-wght-normal.woff2')", { weight: '300 700' }).load().then((f) => document.fonts.add(f))])
+  const ids = new Set([...TEAM.map((m) => m.id), 610, 246, 570, 658, 25, ...LEGENDS])
+  for (let i = 0; i < 48; i++) ids.add(494 + i * 3)
+  const jobs = [...ids].map((id) => load('n' + id, `${SPR}/pokemon/${id}.png`))
+  jobs.push(load('s555', `${SPR}/pokemon/shiny/555.png`))
+  for (const it of ['rare-candy', 'master-ball', 'potion', 'max-revive', 'pp-up', 'leftovers', 'ultra-ball', 'nugget', 'lucky-egg', 'choice-scarf']) jobs.push(load('i' + it, `${SPR}/items/${it}.png`))
+  await Promise.all(jobs)
+}
+window.renderAll = async () => {
+  const frames = Math.ceil(TOTAL * FPS)
+  window.__done = false
+  for (let i = 0; i < frames; i++) {
+    frame(i / FPS)
+    const blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.93))
+    await fetch('/frame?i=' + i, { method: 'POST', body: blob })
+    window.__p = `${i + 1}/${frames}`
+    ui.textContent = window.__p
+  }
+  await fetch('/audio', { method: 'POST', body: await music() })
+  window.__done = true
+  ui.textContent = 'listo'
+}
+preload().then(() => {
+  window.__ready = true
+  ui.textContent = `listo para renderizar (${TOTAL.toFixed(1)} s)`
+  // vista previa en tiempo real (sin grabar)
+  const t0 = performance.now()
+  const loop = () => { if (window.__p) return; frame(((performance.now() - t0) / 1000) % TOTAL); requestAnimationFrame(loop) }
+  loop()
+})
+window.frame = frame
+</script>
+</body>
+</html>
