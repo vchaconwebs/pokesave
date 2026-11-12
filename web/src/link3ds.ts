@@ -7,7 +7,10 @@ import { useEffect, useState } from 'react'
 
 export interface Link3dsInfo {
   app: string
+  /** Código del juego de 3DS (X, SN…) o "SD" si es un .sav elegido en la tarjeta. */
   game: string
+  /** Nombre del archivo ("main" en los juegos de 3DS). */
+  file?: string
   size: number
 }
 
@@ -31,8 +34,8 @@ export function useLink3ds(): Link3dsInfo | null {
   return info
 }
 
-export async function loadFrom3ds(): Promise<File> {
+export async function loadFrom3ds(name = 'main'): Promise<File> {
   const r = await fetch(api3ds('save'), { cache: 'no-store' })
   if (!r.ok) throw new Error(`api/save ${r.status}`)
-  return new File([await r.arrayBuffer()], 'main')
+  return new File([await r.arrayBuffer()], name)
 }

@@ -10,8 +10,12 @@
 //  4. Al pulsar "Guardar en la 3DS" la web manda la partida con el PIN de la pantalla; la app
 //     hace otra copia de lo que había y sobrescribe la partida. Sales con START y abres el juego.
 //
+// También vale para cualquier .sav de la tarjeta SD (juegos de DS con TWiLight Menu++,
+// emuladores, copias…): "Buscar un .sav en la SD" abre un explorador de carpetas. La partida
+// se sobrescribe en el mismo archivo, con copia en sdmc:/3ds/PokeSave/backups/sd/ antes.
+//
 // API (mismo origen que la web):
-//   GET  /api/info  → {"app":"PokeSave Link","game":"X","size":415232}
+//   GET  /api/info  → {"app":"PokeSave Link","game":"X","file":"main","size":415232}
 //   GET  /api/save  → la partida (bytes)
 //   POST /api/save  → cabecera X-PokeSave-Pin con el PIN; cuerpo = partida del mismo tamaño
 #include <3ds.h>
@@ -28,6 +32,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include <dirent.h>
 
 #define PORT 8000
 #define SOC_ALIGN 0x1000
@@ -55,10 +60,17 @@ static const Game GAMES[] = {
 };
 #define GAME_COUNT (sizeof(GAMES) / sizeof(GAMES[0]))
 
+/** Partida elegida: un juego de 3DS (game) o un archivo de la SD (game == NULL, path). */
 typedef struct {
 	const Game *game;
 	FS_MediaType media;
+	char path[384];
 } Found;
+
+static const char *baseName(const char *path) {
+	const char *s = strrchr(path, '/');
+	return s ? s + 1 : path;
+}
 
 static u32 *socBuffer;
 static u8 *saveData;
@@ -73,7 +85,43 @@ static Result openSaveArchive(const Found *f, FS_Archive *archive) {
 	return FSUSER_OpenArchive(archive, ARCHIVE_USER_SAVEDATA, (FS_Path){PATH_BINARY, sizeof(path), path});
 }
 
+// ---------- Archivo de la SD ----------
+
+static Result readSdFile(const char *path) {
+	FILE *fp = fopen(path, "rb");
+	if (!fp) return -1;
+	fseek(fp, 0, SEEK_END);
+	long size = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	if (size <= 0 || size > MAX_SAVE) {
+		fclose(fp);
+		return -1;
+	}
+	free(saveData);
+	saveData = malloc(size);
+	saveSize = fread(saveData, 1, size, fp);
+	fclose(fp);
+	return saveSize == (u32)size ? 0 : -1;
+}
+
+/** Se escribe en un temporal y luego se cambia por el original: nunca queda a medias. */
+static Result writeSdFile(const char *path, const u8 *data, u32 size) {
+	char tmp[400];
+	snprintf(tmp, sizeof(tmp), "%s.pstmp", path);
+	FILE *fp = fopen(tmp, "wb");
+	if (!fp) return -1;
+	bool ok = fwrite(data, 1, size, fp) == size;
+	ok = fclose(fp) == 0 && ok;
+	if (!ok) {
+		remove(tmp);
+		return -1;
+	}
+	remove(path);
+	return rename(tmp, path) == 0 ? 0 : -1;
+}
+
 static Result readSave(const Found *f) {
+	if (!f->game) return readSdFile(f->path);
 	FS_Archive archive;
 	Handle file;
 	Result res = openSaveArchive(f, &archive);
@@ -99,6 +147,7 @@ static Result readSave(const Found *f) {
 }
 
 static Result writeSave(const Found *f, const u8 *data, u32 size) {
+	if (!f->game) return writeSdFile(f->path, data, size);
 	FS_Archive archive;
 	Handle file;
 	Result res = openSaveArchive(f, &archive);
@@ -129,14 +178,20 @@ static void mkdirs(const char *path) {
 	mkdir(tmp, 0777);
 }
 
-/** Copia de seguridad: sdmc:/3ds/PokeSave/backups/<juego>/<AAAAMMDD-HHMMSS>.main */
+/**
+ * Copia de seguridad: sdmc:/3ds/PokeSave/backups/<juego>/<AAAAMMDD-HHMMSS>-<tag>.main
+ * (o backups/sd/<archivo>-<fecha>-<tag>.sav para los archivos de la SD).
+ */
 static bool backup(const char *tag) {
-	char dir[160], file[200];
-	snprintf(dir, sizeof(dir), "%s/%s", BACKUP_ROOT, current->game->code);
+	char dir[160], file[400];
+	snprintf(dir, sizeof(dir), "%s/%s", BACKUP_ROOT, current->game ? current->game->code : "sd");
 	mkdirs(dir);
 	time_t now = time(NULL);
 	struct tm *t = gmtime(&now);
-	snprintf(file, sizeof(file), "%s/%04d%02d%02d-%02d%02d%02d-%s.main", dir, t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, tag);
+	if (current->game)
+		snprintf(file, sizeof(file), "%s/%04d%02d%02d-%02d%02d%02d-%s.main", dir, t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, tag);
+	else
+		snprintf(file, sizeof(file), "%s/%.150s-%04d%02d%02d-%02d%02d%02d-%s.bak", dir, baseName(current->path), t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, tag);
 	FILE *fp = fopen(file, "wb");
 	if (!fp) return false;
 	bool ok = fwrite(saveData, 1, saveSize, fp) == saveSize;
@@ -281,8 +336,17 @@ static void handle(int s) {
 	sscanf((char *)req, "%7s %383s", method, url);
 
 	if (!strcmp(url, "/api/info")) {
-		char json[160];
-		snprintf(json, sizeof(json), "{\"app\":\"PokeSave Link\",\"game\":\"%s\",\"size\":%lu}", current->game->code, (unsigned long)saveSize);
+		// Nombre de archivo solo con caracteres seguros para meterlo en el JSON.
+		char file[96];
+		const char *src = current->game ? "main" : baseName(current->path);
+		size_t j = 0;
+		for (size_t i = 0; src[i] && j < sizeof(file) - 1; i++) {
+			char c = src[i];
+			file[j++] = (c >= 32 && c < 127 && c != '"' && c != '\\') ? c : '_';
+		}
+		file[j] = 0;
+		char json[256];
+		snprintf(json, sizeof(json), "{\"app\":\"PokeSave Link\",\"game\":\"%s\",\"file\":\"%s\",\"size\":%lu}", current->game ? current->game->code : "SD", file, (unsigned long)saveSize);
 		replyText(s, "200 OK", json);
 	} else if (!strcmp(url, "/api/save") && !strcmp(method, "GET")) {
 		reply(s, "200 OK", "application/octet-stream", saveData, saveSize);
@@ -318,25 +382,151 @@ static void handle(int s) {
 
 // ---------- Pantalla ----------
 
+/** Menú inicial: juegos de 3DS encontrados + "Buscar un .sav en la SD". Devuelve el índice
+ *  (count = buscar en la SD) o -1 para salir. */
 static int chooseGame(Found *found, int count) {
-	int sel = 0;
+	int sel = 0, total = count + 1;
+	bool redraw = true;
 	while (aptMainLoop()) {
-		consoleClear();
-		printf("\x1b[1;1H\x1b[31mPokeSave Link\x1b[0m\n\nElige la partida:\n\n");
-		for (int i = 0; i < count; i++)
-			printf("%s %s (%s)\n", i == sel ? ">" : " ", found[i].game->name, found[i].media == MEDIATYPE_GAME_CARD ? "tarjeta" : "digital");
-		printf("\nA: elegir   START: salir\n");
+		if (redraw) {
+			consoleClear();
+			printf("\x1b[1;1H\x1b[31mPokeSave Link\x1b[0m\n\nElige la partida:\n\n");
+			for (int i = 0; i < count; i++)
+				printf("%s %s (%s)\n", i == sel ? "\x1b[33m>" : " ", found[i].game->name, found[i].media == MEDIATYPE_GAME_CARD ? "tarjeta" : "digital");
+			if (count) printf("\x1b[0m\n");
+			printf("%s Buscar un .sav en la SD...\x1b[0m\n", sel == count ? "\x1b[33m>" : " ");
+			printf("   (juegos de DS con TWiLight, emuladores...)\n");
+			printf("\nA: elegir   START: salir\n");
+			redraw = false;
+		}
 		gspWaitForVBlank();
 		hidScanInput();
 		u32 k = hidKeysDown();
 		if (k & KEY_START) return -1;
-		if (k & KEY_DOWN) sel = (sel + 1) % count;
-		if (k & KEY_UP) sel = (sel + count - 1) % count;
+		if (k & KEY_DOWN) { sel = (sel + 1) % total; redraw = true; }
+		if (k & KEY_UP) { sel = (sel + total - 1) % total; redraw = true; }
 		if (k & KEY_A) return sel;
-		gfxFlushBuffers();
-		gfxSwapBuffers();
 	}
 	return -1;
+}
+
+// ---------- Explorador de la SD ----------
+
+#define MAX_ENTRIES 512
+#define LAST_DIR "sdmc:/3ds/PokeSave/ultima-carpeta.txt"
+typedef struct {
+	char name[128];
+	bool dir;
+	long size;
+} Entry;
+static Entry entries[MAX_ENTRIES];
+
+static bool isSaveName(const char *name) {
+	const char *ext = strrchr(name, '.');
+	if (!ext) return false;
+	return !strcasecmp(ext, ".sav") || !strcasecmp(ext, ".dsv") || !strcasecmp(ext, ".sv") || !strcasecmp(ext, ".srm") || !strcasecmp(ext, ".sa1");
+}
+
+static int cmpEntry(const void *a, const void *b) {
+	const Entry *x = a, *y = b;
+	if (x->dir != y->dir) return x->dir ? -1 : 1;
+	return strcasecmp(x->name, y->name);
+}
+
+static int listDir(const char *dir) {
+	int n = 0;
+	DIR *d = opendir(dir);
+	if (!d) return 0;
+	struct dirent *e;
+	while ((e = readdir(d)) && n < MAX_ENTRIES) {
+		if (e->d_name[0] == '.') continue;
+		char full[512];
+		snprintf(full, sizeof(full), "%s/%s", strcmp(dir, "sdmc:/") ? dir : "sdmc:", e->d_name);
+		struct stat st;
+		if (stat(full, &st) != 0) continue;
+		bool isDir = S_ISDIR(st.st_mode);
+		if (!isDir && !isSaveName(e->d_name)) continue;
+		snprintf(entries[n].name, sizeof(entries[n].name), "%.127s", e->d_name);
+		entries[n].dir = isDir;
+		entries[n].size = st.st_size;
+		n++;
+	}
+	closedir(d);
+	qsort(entries, n, sizeof(Entry), cmpEntry);
+	return n;
+}
+
+static void parentDir(char *dir) {
+	if (!strcmp(dir, "sdmc:/")) return;
+	char *s = strrchr(dir, '/');
+	if (s && s > dir + 5) *s = 0;
+	else strcpy(dir, "sdmc:/");
+}
+
+/** Navega por la SD hasta elegir un .sav. Devuelve true y deja la ruta en out. */
+static bool browseSd(char *out, size_t outSize) {
+	char dir[384] = "sdmc:/";
+	FILE *last = fopen(LAST_DIR, "r");
+	if (last) {
+		if (fgets(dir, sizeof(dir), last)) dir[strcspn(dir, "\r\n")] = 0;
+		fclose(last);
+		struct stat st;
+		if (stat(dir, &st) != 0 || !S_ISDIR(st.st_mode)) strcpy(dir, "sdmc:/");
+	}
+	int n = listDir(dir), sel = 0, top = 0;
+	const int rows = 22;
+	bool redraw = true;
+	while (aptMainLoop()) {
+		if (redraw) {
+			consoleClear();
+			printf("\x1b[1;1H\x1b[31mElige tu partida (.sav)\x1b[0m\n\x1b[36m%.48s\x1b[0m\n\n", dir + 5);
+			if (n == 0) printf("  (aqui no hay carpetas ni partidas)\n");
+			if (sel < top) top = sel;
+			if (sel >= top + rows) top = sel - rows + 1;
+			for (int i = top; i < n && i < top + rows; i++) {
+				if (entries[i].dir) printf("%s[%.40s]\x1b[0m\n", i == sel ? "\x1b[33m> " : "  ", entries[i].name);
+				else printf("%s%.36s %5ldK\x1b[0m\n", i == sel ? "\x1b[33m> " : "  ", entries[i].name, entries[i].size / 1024);
+			}
+			printf("\x1b[29;1HA: abrir  B: atras  L/R: pagina  START: salir");
+			redraw = false;
+		}
+		gspWaitForVBlank();
+		hidScanInput();
+		u32 k = hidKeysDown();
+		if (k & KEY_START) return false;
+		if (n && (k & KEY_DOWN)) { sel = (sel + 1) % n; redraw = true; }
+		if (n && (k & KEY_UP)) { sel = (sel + n - 1) % n; redraw = true; }
+		if (n && (k & (KEY_R | KEY_RIGHT))) { sel = sel + rows < n ? sel + rows : n - 1; redraw = true; }
+		if (n && (k & (KEY_L | KEY_LEFT))) { sel = sel - rows > 0 ? sel - rows : 0; redraw = true; }
+		if (k & KEY_B) {
+			parentDir(dir);
+			n = listDir(dir);
+			sel = top = 0;
+			redraw = true;
+		}
+		if (n && (k & KEY_A)) {
+			char next[512];
+			snprintf(next, sizeof(next), "%s/%s", strcmp(dir, "sdmc:/") ? dir : "sdmc:", entries[sel].name);
+			if (entries[sel].dir) {
+				snprintf(dir, sizeof(dir), "%.383s", next);
+				n = listDir(dir);
+				sel = top = 0;
+				redraw = true;
+			} else if (entries[sel].size <= 0 || entries[sel].size > MAX_SAVE) {
+				printf("\x1b[28;1H\x1b[31mEse archivo no parece una partida.\x1b[0m");
+			} else {
+				snprintf(out, outSize, "%.383s", next);
+				mkdirs("sdmc:/3ds/PokeSave");
+				FILE *fp = fopen(LAST_DIR, "w");
+				if (fp) {
+					fputs(dir, fp);
+					fclose(fp);
+				}
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 static void waitExit(void) {
@@ -365,20 +555,24 @@ int main(void) {
 			}
 		}
 	}
-	if (count == 0) {
-		printf("No hay ningun Pokemon de 3DS con partida.\n(X/Y, ROZA, SL o USUL)\n");
-		waitExit();
-		gfxExit();
-		return 0;
-	}
-	int sel = count == 1 ? 0 : chooseGame(found, count);
+	int sel = chooseGame(found, count);
 	if (sel < 0) {
 		gfxExit();
 		return 0;
 	}
-	current = &found[sel];
+	static Found sdFile;
+	if (sel == count) {
+		sdFile.game = NULL;
+		if (!browseSd(sdFile.path, sizeof(sdFile.path))) {
+			gfxExit();
+			return 0;
+		}
+		current = &sdFile;
+	} else {
+		current = &found[sel];
+	}
 	consoleClear();
-	printf("\x1b[31mPokeSave Link\x1b[0m - %s\n\n", current->game->name);
+	printf("\x1b[31mPokeSave Link\x1b[0m - %.40s\n\n", current->game ? current->game->name : baseName(current->path));
 
 	if (R_FAILED(readSave(current))) {
 		printf("No se ha podido leer la partida.\n");

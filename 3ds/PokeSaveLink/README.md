@@ -11,8 +11,15 @@ la consola sirve la web por wifi, la abres en el móvil o el PC, editas y pulsas
 
 ## Juegos
 
-Pokémon X/Y, Rubí Omega/Zafiro Alfa, Sol/Luna y Ultrasol/Ultraluna (tarjeta o digital).
-Aún no: Consola Virtual (Rojo/Azul/Amarillo, Oro/Plata/Cristal) ni juegos de DS.
+- **Juegos de 3DS** (los encuentra solos): X/Y, Rubí Omega/Zafiro Alfa, Sol/Luna y
+  Ultrasol/Ultraluna, en tarjeta o digitales.
+- **Cualquier `.sav` de la SD** ("Buscar un .sav en la SD…"): juegos de DS con TWiLight
+  Menu++ / nds-bootstrap, partidas de emuladores, copias… Se abre un explorador de carpetas
+  (A abrir, B atrás, L/R página) y recuerda la última carpeta. Se sobrescribe el mismo archivo
+  (a través de un temporal, para que nunca quede a medias) con copia antes en
+  `sdmc:/3ds/PokeSave/backups/sd/`.
+- Aún no: cartuchos de DS metidos en la consola (la partida está en el chip del cartucho) ni
+  Consola Virtual.
 
 ## Instalar
 
@@ -24,7 +31,8 @@ Aún no: Consola Virtual (Rojo/Azul/Amarillo, Oro/Plata/Cristal) ni juegos de DS
 
 ## Usar
 
-1. Elige el juego. La app hace una copia: `sdmc:/3ds/PokeSave/backups/<juego>/<fecha>-original.main`.
+1. Elige el juego o "Buscar un .sav en la SD…". La app hace una copia:
+   `sdmc:/3ds/PokeSave/backups/<juego>/<fecha>-original.main` (o `backups/sd/<archivo>-<fecha>-original.bak`).
 2. En la pantalla sale una dirección (`http://192.168.x.x:8000`) y un **PIN**.
 3. Ábrela en el navegador del móvil o del PC (misma wifi) → **Abrir la partida de la 3DS**.
 4. Edita y pulsa **Guardar en la 3DS** con el PIN. Antes de escribir hace otra copia

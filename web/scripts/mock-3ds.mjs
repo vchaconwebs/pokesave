@@ -18,7 +18,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.
 
 createServer((req, res) => {
   const url = (req.url ?? '/').split('?')[0]
-  if (url === '/api/info') return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ app: 'PokeSave Link', game: 'X', size: save.length }))
+  if (url === '/api/info') return res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ app: 'PokeSave Link', game: 'SD', file: file.split(/[\\/]/).pop(), size: save.length }))
   if (url === '/api/save' && req.method === 'GET') return res.writeHead(200, { 'Content-Type': 'application/octet-stream' }).end(save)
   if (url === '/api/save' && req.method === 'POST') {
     if (req.headers['x-pokesave-pin'] !== PIN) return res.writeHead(403).end('{"error":"pin"}')
