@@ -38,6 +38,9 @@
 #include <time.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <math.h>
+#include <citro2d.h>
+#include "qrcodegen.h"
 #include "spi.h"
 
 #define PORT 8000
@@ -104,6 +107,14 @@ static u8 *saveData;
 static u32 saveSize;
 static const Found *current;
 static char pin[8];
+static const char *webRoot = "sdmc:/3ds/PokeSave/web";
+
+// Estado que enseña la pantalla (lo actualiza el hilo del servidor).
+static volatile int serveStatus; // 0 esperando, 1 web abierta, 2 partida enviada, 3 guardando, 4 guardada, 5 error
+static volatile u32 savedAt;
+static volatile u32 frameNo;
+static char lastLog[96] = "Copia de seguridad hecha en la SD";
+static void addLog(const char *msg) { snprintf(lastLog, sizeof(lastLog), "%s", msg); }
 
 // ---------- Partida ----------
 
@@ -254,7 +265,6 @@ static bool backup(const char *tag) {
 	if (!fp) return false;
 	bool ok = fwrite(saveData, 1, saveSize, fp) == saveSize;
 	fclose(fp);
-	if (ok) printf("Copia: %s\n", file + 5);
 	return ok;
 }
 
@@ -320,7 +330,7 @@ static void serveFile(int s, const char *urlPath) {
 	}
 	const char *q = strchr(urlPath, '?');
 	int len = q ? (int)(q - urlPath) : (int)strlen(urlPath);
-	snprintf(path, sizeof(path), "%s%.*s", WEB_ROOT, len, urlPath);
+	snprintf(path, sizeof(path), "%s%.*s", webRoot, len, urlPath);
 	if (path[strlen(path) - 1] == '/') strncat(path, "index.html", sizeof(path) - strlen(path) - 1);
 	struct stat st;
 	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) strncat(path, "/index.html", sizeof(path) - strlen(path) - 1);
@@ -408,6 +418,8 @@ static void handle(int s) {
 		replyText(s, "200 OK", json);
 	} else if (!strcmp(url, "/api/save") && !strcmp(method, "GET")) {
 		reply(s, "200 OK", "application/octet-stream", saveData, saveSize);
+		serveStatus = 2;
+		addLog("Edita en el móvil y pulsa Guardar en la 3DS");
 	} else if (!strcmp(url, "/api/save") && !strcmp(method, "POST")) {
 		char *pinHeader = findHeader((char *)req, "\nX-PokeSave-Pin:");
 		char given[8] = {0};
@@ -417,56 +429,34 @@ static void handle(int s) {
 			replyText(s, "403 Forbidden", "{\"error\":\"pin\"}");
 		} else if ((u32)bodyLen != saveSize) {
 			replyText(s, "400 Bad Request", "{\"error\":\"size\"}");
-		} else if (!backup("antes")) {
+		} else if ((serveStatus = 3), !backup("antes")) {
 			replyText(s, "500 Internal Server Error", "{\"error\":\"backup\"}");
 		} else {
 			Result res = writeSave(current, req + headerLen, bodyLen);
 			if (R_SUCCEEDED(res)) {
 				memcpy(saveData, req + headerLen, bodyLen);
-				printf("\x1b[32mPartida guardada en la 3DS.\x1b[0m\n");
+				serveStatus = 4;
+				savedAt = frameNo;
+				addLog("Hay otra copia de lo de antes en la SD");
 				replyText(s, "200 OK", "{\"ok\":true}");
 			} else {
-				printf("\x1b[31mError al guardar: %08lX\x1b[0m\n", res);
+				serveStatus = 5;
+				char m[96];
+				snprintf(m, sizeof(m), "Error %08lX. Tienes la copia en la SD.", res);
+				addLog(m);
 				replyText(s, "500 Internal Server Error", "{\"error\":\"write\"}");
 			}
 		}
 	} else if (!strcmp(method, "GET")) {
+		if (serveStatus == 0 && (!strcmp(url, "/") || !strncmp(url, "/index.html", 11))) {
+			serveStatus = 1;
+			addLog("Toca Abrir la partida de la 3DS");
+		}
 		serveFile(s, url);
 	} else {
 		replyText(s, "405 Method Not Allowed", "{\"error\":\"method\"}");
 	}
 	free(req);
-}
-
-// ---------- Pantalla ----------
-
-/** Menú inicial: juegos de 3DS encontrados + "Buscar un .sav en la SD". Devuelve el índice
- *  (count = buscar en la SD) o -1 para salir. */
-static int chooseGame(Found *found, int count) {
-	int sel = 0, total = count + 1;
-	bool redraw = true;
-	while (aptMainLoop()) {
-		if (redraw) {
-			consoleClear();
-			printf("\x1b[1;1H\x1b[31mPokeSave Link\x1b[0m\n\nElige la partida:\n\n");
-			for (int i = 0; i < count; i++)
-				printf("%s %.30s (%s)\n", i == sel ? "\x1b[33m>" : " ", found[i].label,
-				       found[i].kind == SRC_NDS ? "cartucho DS" : !strcmp(found[i].inner, "/sav.dat") ? "Consola Virtual" : found[i].media == MEDIATYPE_GAME_CARD ? "cartucho" : "digital");
-			if (count) printf("\x1b[0m\n");
-			printf("%s Buscar un .sav en la SD...\x1b[0m\n", sel == count ? "\x1b[33m>" : " ");
-			printf("   (juegos de DS con TWiLight, emuladores...)\n");
-			printf("\nA: elegir   START: salir\n");
-			redraw = false;
-		}
-		gspWaitForVBlank();
-		hidScanInput();
-		u32 k = hidKeysDown();
-		if (k & KEY_START) return -1;
-		if (k & KEY_DOWN) { sel = (sel + 1) % total; redraw = true; }
-		if (k & KEY_UP) { sel = (sel + total - 1) % total; redraw = true; }
-		if (k & KEY_A) return sel;
-	}
-	return -1;
 }
 
 // ---------- Explorador de la SD ----------
@@ -520,81 +510,6 @@ static void parentDir(char *dir) {
 	char *s = strrchr(dir, '/');
 	if (s && s > dir + 5) *s = 0;
 	else strcpy(dir, "sdmc:/");
-}
-
-/** Navega por la SD hasta elegir un .sav. Devuelve true y deja la ruta en out. */
-static bool browseSd(char *out, size_t outSize) {
-	char dir[384] = "sdmc:/";
-	FILE *last = fopen(LAST_DIR, "r");
-	if (last) {
-		if (fgets(dir, sizeof(dir), last)) dir[strcspn(dir, "\r\n")] = 0;
-		fclose(last);
-		struct stat st;
-		if (stat(dir, &st) != 0 || !S_ISDIR(st.st_mode)) strcpy(dir, "sdmc:/");
-	}
-	int n = listDir(dir), sel = 0, top = 0;
-	const int rows = 22;
-	bool redraw = true;
-	while (aptMainLoop()) {
-		if (redraw) {
-			consoleClear();
-			printf("\x1b[1;1H\x1b[31mElige tu partida (.sav)\x1b[0m\n\x1b[36m%.48s\x1b[0m\n\n", dir + 5);
-			if (n == 0) printf("  (aqui no hay carpetas ni partidas)\n");
-			if (sel < top) top = sel;
-			if (sel >= top + rows) top = sel - rows + 1;
-			for (int i = top; i < n && i < top + rows; i++) {
-				if (entries[i].dir) printf("%s[%.40s]\x1b[0m\n", i == sel ? "\x1b[33m> " : "  ", entries[i].name);
-				else printf("%s%.36s %5ldK\x1b[0m\n", i == sel ? "\x1b[33m> " : "  ", entries[i].name, entries[i].size / 1024);
-			}
-			printf("\x1b[29;1HA: abrir  B: atras  L/R: pagina  START: salir");
-			redraw = false;
-		}
-		gspWaitForVBlank();
-		hidScanInput();
-		u32 k = hidKeysDown();
-		if (k & KEY_START) return false;
-		if (n && (k & KEY_DOWN)) { sel = (sel + 1) % n; redraw = true; }
-		if (n && (k & KEY_UP)) { sel = (sel + n - 1) % n; redraw = true; }
-		if (n && (k & (KEY_R | KEY_RIGHT))) { sel = sel + rows < n ? sel + rows : n - 1; redraw = true; }
-		if (n && (k & (KEY_L | KEY_LEFT))) { sel = sel - rows > 0 ? sel - rows : 0; redraw = true; }
-		if (k & KEY_B) {
-			parentDir(dir);
-			n = listDir(dir);
-			sel = top = 0;
-			redraw = true;
-		}
-		if (n && (k & KEY_A)) {
-			char next[512];
-			snprintf(next, sizeof(next), "%s/%s", strcmp(dir, "sdmc:/") ? dir : "sdmc:", entries[sel].name);
-			if (entries[sel].dir) {
-				snprintf(dir, sizeof(dir), "%.383s", next);
-				n = listDir(dir);
-				sel = top = 0;
-				redraw = true;
-			} else if (entries[sel].size <= 0 || entries[sel].size > MAX_SAVE) {
-				printf("\x1b[28;1H\x1b[31mEse archivo no parece una partida.\x1b[0m");
-			} else {
-				snprintf(out, outSize, "%.383s", next);
-				mkdirs("sdmc:/3ds/PokeSave");
-				FILE *fp = fopen(LAST_DIR, "w");
-				if (fp) {
-					fputs(dir, fp);
-					fclose(fp);
-				}
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-static void waitExit(void) {
-	printf("\nPulsa START para salir.\n");
-	while (aptMainLoop()) {
-		hidScanInput();
-		if (hidKeysDown() & KEY_START) break;
-		gspWaitForVBlank();
-	}
 }
 
 /** ¿Esta partida tiene ese archivo dentro? (y su tamaño, para descartar lo que no es). */
@@ -673,7 +588,7 @@ static int findSaves(Found *out, int max, bool pxi) {
 					snprintf(f.label, sizeof(f.label), "%s", DS_GAMES[i].name);
 					out[n++] = f;
 				} else {
-					printf("\x1b[33mCartucho %s: no se reconoce su memoria.\x1b[0m\n", gameCode);
+					(void)gameCode;
 				}
 				break;
 			}
@@ -683,98 +598,491 @@ static int findSaves(Found *out, int max, bool pxi) {
 	return n;
 }
 
-int main(void) {
-	gfxInitDefault();
-	consoleInit(GFX_TOP, NULL);
 
-	printf("\x1b[31mPokeSave Link\x1b[0m\n\nBuscando partidas...\n");
-	amInit();
-	bool pxi = R_SUCCEEDED(pxiDevInit());
-	static Found found[48];
-	int count = findSaves(found, 48, pxi);
-	int sel = chooseGame(found, count);
-	if (sel < 0) {
-		if (pxi) pxiDevExit();
-		amExit();
-		gfxExit();
-		return 0;
+// ======================================================================
+//  Interfaz (citro2d): las dos pantallas, con tarjetas, iconos, QR y animaciones.
+// ======================================================================
+
+#define C_NAVY C2D_Color32(14, 20, 48, 255)
+#define C_NAVY2 C2D_Color32(24, 33, 80, 255)
+#define C_NAVY3 C2D_Color32(36, 48, 110, 255)
+#define C_LINE C2D_Color32(58, 67, 128, 255)
+#define C_RED C2D_Color32(227, 36, 43, 255)
+#define C_RED_HI C2D_Color32(255, 80, 84, 255)
+#define C_RED_LO C2D_Color32(158, 15, 27, 255)
+#define C_GOLD C2D_Color32(255, 203, 5, 255)
+#define C_TEXT C2D_Color32(243, 245, 255, 255)
+#define C_MUTED C2D_Color32(168, 176, 214, 255)
+#define C_GOOD C2D_Color32(61, 220, 132, 255)
+#define C_BAD C2D_Color32(255, 90, 90, 255)
+#define C_LCD C2D_Color32(155, 188, 15, 255)
+#define C_LCD_INK C2D_Color32(31, 59, 18, 255)
+#define C_WHITE C2D_Color32(255, 255, 255, 255)
+#define C_BLUE C2D_Color32(41, 168, 255, 255)
+
+static C2D_TextBuf textBuf;
+static C2D_SpriteSheet sheet;
+
+static void rrect(float x, float y, float w, float h, float r, u32 c) {
+	if (r * 2 > h) r = h / 2;
+	if (r * 2 > w) r = w / 2;
+	C2D_DrawRectSolid(x + r, y, 0, w - 2 * r, h, c);
+	C2D_DrawRectSolid(x, y + r, 0, r, h - 2 * r, c);
+	C2D_DrawRectSolid(x + w - r, y + r, 0, r, h - 2 * r, c);
+	C2D_DrawCircleSolid(x + r, y + r, 0, r, c);
+	C2D_DrawCircleSolid(x + w - r, y + r, 0, r, c);
+	C2D_DrawCircleSolid(x + r, y + h - r, 0, r, c);
+	C2D_DrawCircleSolid(x + w - r, y + h - r, 0, r, c);
+}
+
+/** Texto con la fuente del sistema (lleva tildes y ñ). size 1.0 ≈ 30 px. */
+static float txt(const char *s, float x, float y, float size, u32 c, u32 flags) {
+	C2D_Text t;
+	C2D_TextParse(&t, textBuf, s);
+	C2D_TextOptimize(&t);
+	C2D_DrawText(&t, C2D_WithColor | flags, x, y, 0.5f, size, size, c);
+	float w = 0, h = 0;
+	C2D_TextGetDimensions(&t, size, size, &w, &h);
+	return w;
+}
+
+static void logo(float x, float y, float scale) {
+	if (sheet) C2D_DrawImageAt(C2D_SpriteSheetGetImage(sheet, 0), x, y, 0.5f, NULL, scale, scale);
+}
+
+/** Poké Ball girando (cargando). */
+static void spinner(float cx, float cy, float r) {
+	for (int i = 0; i < 8; i++) {
+		float a = (frameNo * 0.15f) + i * (M_PI * 2 / 8);
+		u8 alpha = 60 + i * 24;
+		C2D_DrawCircleSolid(cx + cosf(a) * r, cy + sinf(a) * r, 0, r * 0.22f, C2D_Color32(255, 203, 5, alpha));
 	}
-	static Found sdFile;
-	if (sel == count) {
-		memset(&sdFile, 0, sizeof(sdFile));
-		sdFile.kind = SRC_SD;
-		if (!browseSd(sdFile.path, sizeof(sdFile.path))) {
-			gfxExit();
-			return 0;
-		}
-		strcpy(sdFile.code, "SD");
-		snprintf(sdFile.label, sizeof(sdFile.label), "%.63s", baseName(sdFile.path));
-		current = &sdFile;
-	} else {
-		current = &found[sel];
-	}
-	consoleClear();
-	printf("\x1b[31mPokeSave Link\x1b[0m - %.40s\n\n", current->label);
-	if (current->kind == SRC_NDS) printf("Cartucho de DS: no lo saques mientras\nesta app este abierta.\n\n");
+}
 
-	if (R_FAILED(readSave(current))) {
-		printf("No se ha podido leer la partida.\n");
-		waitExit();
-		gfxExit();
-		return 0;
-	}
-	if (!backup("original")) printf("\x1b[33mAviso: no se ha podido hacer la copia en la SD.\x1b[0m\n");
+static void background(float w, float h) {
+	C2D_DrawRectangle(0, 0, 0, w, h, C_NAVY3, C_NAVY3, C_NAVY, C_NAVY);
+	// franjas diagonales que se mueven
+	float off = (frameNo % 120) * 1.0f;
+	u32 c = C2D_Color32(255, 255, 255, 12);
+	for (float x = -240 + off; x < w + 240; x += 60) C2D_DrawTriangle(x, 0, c, x + 22, 0, c, x - 140, h, c, 0), C2D_DrawTriangle(x + 22, 0, c, x - 118, h, c, x - 140, h, c, 0);
+}
 
-	srand((unsigned)osGetTime());
-	snprintf(pin, sizeof(pin), "%04u", (unsigned)(rand() % 10000));
+static void header(const char *right) {
+	C2D_DrawRectangle(0, 0, 0, 400, 40, C_RED_HI, C_RED_HI, C_RED_LO, C_RED_LO);
+	C2D_DrawRectSolid(0, 40, 0, 400, 3, C2D_Color32(0, 0, 0, 70));
+	logo(8, 4, 0.5f);
+	txt("PokeSave", 46, 6, 0.72f, C_WHITE, 0);
+	txt("LINK", 160, 13, 0.5f, C_GOLD, 0);
+	if (right) txt(right, 392, 13, 0.45f, C2D_Color32(255, 225, 225, 255), C2D_AlignRight);
+}
 
-	socBuffer = memalign(SOC_ALIGN, SOC_BUFFERSIZE);
-	if (!socBuffer || socInit(socBuffer, SOC_BUFFERSIZE) != 0) {
-		printf("No se ha podido iniciar la red.\n");
-		waitExit();
-		gfxExit();
-		return 0;
-	}
-	int server = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-	struct sockaddr_in addr = {0};
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(PORT);
-	addr.sin_addr.s_addr = gethostid();
-	if (server < 0 || bind(server, (struct sockaddr *)&addr, sizeof(addr)) != 0 || listen(server, 4) != 0) {
-		printf("No se ha podido abrir el puerto %d.\n", PORT);
-		waitExit();
-		socExit();
-		gfxExit();
-		return 0;
-	}
-	fcntl(server, F_SETFL, fcntl(server, F_GETFL, 0) | O_NONBLOCK);
+/** Etiqueta de color con el tipo de partida (3DS, VC, DS, SD). */
+static void badge(float x, float y, const char *label, u32 color) {
+	rrect(x, y, 40, 24, 8, color);
+	txt(label, x + 20, y + 4, 0.48f, C_WHITE, C2D_AlignCenter);
+}
 
-	struct in_addr ip = {.s_addr = gethostid()};
-	printf("Abre en el movil o el PC (misma wifi):\n\n  \x1b[36mhttp://%s:%d\x1b[0m\n\n", inet_ntoa(ip), PORT);
-	printf("PIN para guardar: \x1b[33m%s\x1b[0m\n\n", pin);
-	printf("Copias en sdmc:/3ds/PokeSave/backups/\n");
-	printf("START: salir y abrir el juego\n\n");
+static void kindBadge(const Found *f, float x, float y) {
+	if (f->kind == SRC_NDS) badge(x, y, "DS", C_BLUE);
+	else if (f->kind == SRC_SD) badge(x, y, "SD", C2D_Color32(214, 160, 0, 255));
+	else if (!strcmp(f->inner, "/sav.dat")) badge(x, y, "VC", C2D_Color32(40, 170, 90, 255));
+	else badge(x, y, "3DS", C_RED);
+}
 
-	while (aptMainLoop()) {
-		hidScanInput();
-		if (hidKeysDown() & KEY_START) break;
+static const char *kindText(const Found *f) {
+	if (f->kind == SRC_NDS) return "Cartucho de DS";
+	if (f->kind == SRC_SD) return "Archivo de la SD";
+	if (!strcmp(f->inner, "/sav.dat")) return "Consola Virtual";
+	return f->media == MEDIATYPE_GAME_CARD ? "Cartucho de 3DS" : "Juego digital";
+}
+
+/** Botón dibujado con la letra de la consola ("A", "B"…). */
+static float keyHint(float x, float y, const char *key, const char *label, u32 color) {
+	float kw = strlen(key) > 1 ? 44 : 22;
+	rrect(x, y, kw, 22, 11, color);
+	txt(key, x + kw / 2, y + 3, 0.45f, C_WHITE, C2D_AlignCenter);
+	return kw + 6 + txt(label, x + kw + 6, y + 3, 0.45f, C_TEXT, 0) + 16;
+}
+
+// ---------- estado de la app ----------
+
+typedef enum { ST_MENU, ST_BROWSE, ST_LOADING, ST_SERVE, ST_ERROR } AppState;
+
+static Found found[48];
+static int foundCount;
+static Found sdFile;
+static int menuSel;
+static char errorMsg[160];
+
+// explorador
+static char browseDir[384] = "sdmc:/";
+static int browseN, browseSel, browseTop;
+
+// servidor (lo comparten el hilo del servidor y la pantalla)
+static volatile bool serverRun;
+static char url[64];
+static u8 qr[qrcodegen_BUFFER_LEN_FOR_VERSION(6)];
+static bool qrOk;
+static int serverSock = -1;
+static Thread serverThread;
+
+static void serverMain(void *arg) {
+	(void)arg;
+	while (serverRun) {
 		struct sockaddr_in client;
 		socklen_t clen = sizeof(client);
-		int c = accept(server, (struct sockaddr *)&client, &clen);
+		int c = accept(serverSock, (struct sockaddr *)&client, &clen);
 		if (c >= 0) {
 			fcntl(c, F_SETFL, fcntl(c, F_GETFL, 0) & ~O_NONBLOCK);
 			handle(c);
 			close(c);
 		} else {
-			gspWaitForVBlank();
+			svcSleepThread(10 * 1000000LL);
+		}
+	}
+}
+
+static void loadBrowse(void) {
+	browseN = listDir(browseDir);
+	browseSel = browseTop = 0;
+}
+
+static void openBrowser(void) {
+	FILE *last = fopen(LAST_DIR, "r");
+	strcpy(browseDir, "sdmc:/");
+	if (last) {
+		if (fgets(browseDir, sizeof(browseDir), last)) browseDir[strcspn(browseDir, "\r\n")] = 0;
+		fclose(last);
+		struct stat st;
+		if (stat(browseDir, &st) != 0 || !S_ISDIR(st.st_mode)) strcpy(browseDir, "sdmc:/");
+	}
+	loadBrowse();
+}
+
+/** Lee la partida, hace la copia y arranca el servidor. Devuelve false con errorMsg. */
+static bool startServing(void) {
+	if (R_FAILED(readSave(current))) {
+		snprintf(errorMsg, sizeof(errorMsg), "No se ha podido leer la partida.");
+		return false;
+	}
+	if (!backup("original")) addLog("Aviso: no se ha podido hacer la copia");
+	srand((unsigned)osGetTime());
+	snprintf(pin, sizeof(pin), "%04u", (unsigned)(rand() % 10000));
+
+	socBuffer = memalign(SOC_ALIGN, SOC_BUFFERSIZE);
+	if (!socBuffer || socInit(socBuffer, SOC_BUFFERSIZE) != 0) {
+		snprintf(errorMsg, sizeof(errorMsg), "No se ha podido iniciar la red.");
+		return false;
+	}
+	u32 ip = gethostid();
+	if (ip == 0) {
+		snprintf(errorMsg, sizeof(errorMsg), "La consola no está conectada a ninguna wifi.");
+		return false;
+	}
+	serverSock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+	struct sockaddr_in addr = {0};
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(PORT);
+	addr.sin_addr.s_addr = ip;
+	if (serverSock < 0 || bind(serverSock, (struct sockaddr *)&addr, sizeof(addr)) != 0 || listen(serverSock, 4) != 0) {
+		snprintf(errorMsg, sizeof(errorMsg), "No se ha podido abrir el puerto %d.", PORT);
+		return false;
+	}
+	fcntl(serverSock, F_SETFL, fcntl(serverSock, F_GETFL, 0) | O_NONBLOCK);
+	struct in_addr in = {.s_addr = ip};
+	snprintf(url, sizeof(url), "http://%s:%d", inet_ntoa(in), PORT);
+	u8 tmp[qrcodegen_BUFFER_LEN_FOR_VERSION(6)];
+	qrOk = qrcodegen_encodeText(url, tmp, qr, qrcodegen_Ecc_MEDIUM, 1, 6, qrcodegen_Mask_AUTO, true);
+
+	serverRun = true;
+	s32 prio = 0x30;
+	svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
+	serverThread = threadCreate(serverMain, NULL, 64 * 1024, prio - 1, -1, false);
+	return true;
+}
+
+// ---------- pantallas ----------
+
+static void drawMenu(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
+	C2D_SceneBegin(top);
+	background(400, 240);
+	header("Elige tu partida");
+	int total = foundCount + 1;
+	const float cardH = 52, gap = 6, y0 = 52;
+	int visible = 3;
+	int first = menuSel - 1 < 0 ? 0 : menuSel - 1;
+	if (first > total - visible) first = total - visible < 0 ? 0 : total - visible;
+	for (int i = first; i < total && i < first + visible; i++) {
+		float y = y0 + (i - first) * (cardH + gap);
+		bool sel = i == menuSel;
+		float pulse = sel ? (sinf(frameNo * 0.12f) + 1) * 1.5f : 0;
+		if (sel) rrect(10 - pulse, y - 2 - pulse, 380 + pulse * 2, cardH + 4 + pulse * 2, 14, C_GOLD);
+		rrect(12, y, 376, cardH, 12, sel ? C_NAVY3 : C_NAVY2);
+		if (i < foundCount) {
+			kindBadge(&found[i], 24, y + 14);
+			txt(found[i].label, 76, y + 7, 0.62f, C_TEXT, 0);
+			txt(kindText(&found[i]), 76, y + 29, 0.46f, C_MUTED, 0);
+		} else {
+			badge(24, y + 14, "SD", C2D_Color32(214, 160, 0, 255));
+			txt("Buscar un .sav en la SD", 76, y + 7, 0.62f, C_TEXT, 0);
+			txt("TWiLight Menu++, emuladores, copias...", 76, y + 29, 0.46f, C_MUTED, 0);
+		}
+		if (sel) txt(">", 372, y + 14, 0.7f, C_GOLD, C2D_AlignRight);
+	}
+	if (total > visible) {
+		// barra de desplazamiento
+		float h = 170.0f * visible / total, y = 52 + (170.0f - h) * first / (total - visible);
+		rrect(392, 52, 4, 170, 2, C_LINE);
+		rrect(392, y, 4, h, 2, C_GOLD);
+	}
+
+	C2D_SceneBegin(bottom);
+	C2D_DrawRectangle(0, 0, 0, 320, 240, C_NAVY2, C_NAVY2, C_NAVY, C_NAVY);
+	logo(128, 18, 1.0f);
+	txt("Edita tu partida desde el", 160, 92, 0.55f, C_TEXT, C2D_AlignCenter);
+	txt("navegador del móvil o del PC", 160, 112, 0.55f, C_TEXT, C2D_AlignCenter);
+	rrect(20, 144, 280, 44, 12, C_NAVY3);
+	txt("Siempre se hace una copia antes de", 160, 150, 0.45f, C_MUTED, C2D_AlignCenter);
+	txt("guardar en sdmc:/3ds/PokeSave/backups/", 160, 167, 0.45f, C_MUTED, C2D_AlignCenter);
+	float x = 26;
+	x += keyHint(x, 204, "A", "Elegir", C_RED);
+	x += keyHint(x, 204, "↕", "Moverse", C_LINE);
+	keyHint(x, 204, "START", "Salir", C_LINE);
+}
+
+static void drawBrowse(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
+	C2D_SceneBegin(top);
+	background(400, 240);
+	header("Elige el .sav");
+	rrect(8, 46, 384, 20, 8, C_NAVY);
+	char path[64];
+	const char *p = browseDir + 5;
+	size_t len = strlen(p);
+	snprintf(path, sizeof(path), "%s%s", len > 52 ? "..." : "", len > 52 ? p + len - 52 : p);
+	txt(path, 16, 48, 0.45f, C_BLUE, 0);
+	const int rows = 7;
+	if (browseSel < browseTop) browseTop = browseSel;
+	if (browseSel >= browseTop + rows) browseTop = browseSel - rows + 1;
+	if (browseN == 0) txt("Aquí no hay carpetas ni partidas", 200, 130, 0.55f, C_MUTED, C2D_AlignCenter);
+	for (int i = browseTop; i < browseN && i < browseTop + rows; i++) {
+		float y = 72 + (i - browseTop) * 24;
+		bool sel = i == browseSel;
+		if (sel) rrect(8, y, 384, 22, 8, C_NAVY3), rrect(8, y, 4, 22, 2, C_GOLD);
+		if (entries[i].dir) {
+			C2D_DrawRectSolid(20, y + 5, 0, 8, 4, C_GOLD);
+			rrect(20, y + 7, 18, 11, 2, C_GOLD);
+		} else {
+			rrect(22, y + 3, 14, 17, 2, C_WHITE);
+			C2D_DrawRectSolid(22, y + 14, 0, 14, 6, C_BLUE);
+		}
+		txt(entries[i].name, 46, y + 3, 0.5f, sel ? C_WHITE : C_TEXT, 0);
+		if (!entries[i].dir) {
+			char kb[16];
+			snprintf(kb, sizeof(kb), "%ld KB", entries[i].size / 1024);
+			txt(kb, 384, y + 4, 0.45f, C_MUTED, C2D_AlignRight);
 		}
 	}
 
-	close(server);
-	socExit();
+	C2D_SceneBegin(bottom);
+	C2D_DrawRectangle(0, 0, 0, 320, 240, C_NAVY2, C_NAVY2, C_NAVY, C_NAVY);
+	if (browseN > 0) {
+		Entry *e = &entries[browseSel];
+		rrect(14, 16, 292, 96, 16, C_NAVY3);
+		txt(e->dir ? "Carpeta" : "Partida", 30, 26, 0.48f, C_GOLD, 0);
+		txt(e->name, 30, 48, 0.55f, C_TEXT, 0);
+		if (!e->dir) {
+			char kb[32];
+			snprintf(kb, sizeof(kb), "%ld KB", e->size / 1024);
+			txt(kb, 30, 76, 0.5f, C_MUTED, 0);
+		} else {
+			txt("Pulsa A para entrar", 30, 76, 0.5f, C_MUTED, 0);
+		}
+	}
+	txt("Juegos de DS con TWiLight: busca", 160, 126, 0.45f, C_MUTED, C2D_AlignCenter);
+	txt("en la carpeta \"saves\" junto a la ROM.", 160, 143, 0.45f, C_MUTED, C2D_AlignCenter);
+	float x = 14;
+	x += keyHint(x, 176, "A", "Abrir", C_RED);
+	x += keyHint(x, 176, "B", "Atrás", C_LINE);
+	keyHint(x, 176, "L/R", "Página", C_LINE);
+	keyHint(14, 206, "START", "Volver al menú", C_LINE);
+}
+
+static void drawLoading(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
+	C2D_SceneBegin(top);
+	background(400, 240);
+	header(NULL);
+	spinner(200, 120, 26);
+	txt("Leyendo la partida...", 200, 170, 0.6f, C_TEXT, C2D_AlignCenter);
+	if (current && current->kind == SRC_NDS) txt("No saques el cartucho", 200, 196, 0.5f, C_GOLD, C2D_AlignCenter);
+	C2D_SceneBegin(bottom);
+	C2D_DrawRectangle(0, 0, 0, 320, 240, C_NAVY2, C_NAVY2, C_NAVY, C_NAVY);
+	logo(128, 88, 1.0f);
+}
+
+static void drawServe(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
+	C2D_SceneBegin(top);
+	background(400, 240);
+	header(current->kind == SRC_NDS ? "No saques el cartucho" : "Conectado a la wifi");
+	// tarjeta del juego
+	rrect(10, 48, 380, 48, 12, C_NAVY2);
+	kindBadge(current, 20, 60);
+	txt(current->label, 70, 52, 0.6f, C_TEXT, 0);
+	txt(kindText(current), 70, 74, 0.45f, C_MUTED, 0);
+	// dirección y PIN
+	txt("Abre en el navegador (misma wifi):", 14, 104, 0.48f, C_MUTED, 0);
+	txt(url, 14, 122, 0.7f, C_GOLD, 0);
+	rrect(270, 102, 120, 50, 10, C_LCD_INK);
+	rrect(273, 105, 114, 44, 8, C_LCD);
+	txt("PIN", 330, 106, 0.38f, C_LCD_INK, C2D_AlignCenter);
+	txt(pin, 330, 118, 0.78f, C_LCD_INK, C2D_AlignCenter);
+	// estado
+	rrect(10, 162, 380, 68, 12, C_NAVY2);
+	int st = serveStatus;
+	const char *msg = st == 0 ? "Esperando al móvil..." : st == 1 ? "Web abierta en el móvil" : st == 2 ? "Partida enviada: ¡a editar!" : st == 3 ? "Guardando..." : st == 4 ? "¡Partida guardada y comprobada!" : "Error al guardar";
+	u32 col = st == 4 ? C_GOOD : st == 5 ? C_BAD : C_TEXT;
+	if (st == 0 || st == 3) spinner(34, 196, 10);
+	else if (st == 4) C2D_DrawCircleSolid(34, 196, 0, 12 + sinf(frameNo * 0.3f) * (frameNo - savedAt < 30 ? 3 : 0), C_GOOD), txt("✓", 34, 186, 0.6f, C_WHITE, C2D_AlignCenter);
+	else C2D_DrawCircleSolid(34, 196, 0, 10, st == 5 ? C_BAD : C_BLUE);
+	txt(msg, 56, 172, 0.58f, col, 0);
+	txt(st == 4 ? "Pulsa START y abre el juego" : lastLog, 56, 198, 0.45f, C_MUTED, 0);
+
+	C2D_SceneBegin(bottom);
+	C2D_DrawRectangle(0, 0, 0, 320, 240, C_NAVY2, C_NAVY2, C_NAVY, C_NAVY);
+	if (qrOk) {
+		int n = qrcodegen_getSize(qr);
+		int scale = 170 / (n + 4);
+		float size = scale * (n + 4), x0 = (320 - size) / 2, y0 = 12;
+		rrect(x0 - 4, y0 - 4, size + 8, size + 8, 10, C_WHITE);
+		for (int y = 0; y < n; y++)
+			for (int x = 0; x < n; x++)
+				if (qrcodegen_getModule(qr, x, y)) C2D_DrawRectSolid(x0 + (x + 2) * scale, y0 + (y + 2) * scale, 0, scale, scale, C_NAVY);
+		txt("Escanéalo con la cámara del móvil", 160, y0 + size + 12, 0.48f, C_TEXT, C2D_AlignCenter);
+	}
+	keyHint(100, 214, "START", "Salir", C_LINE);
+}
+
+static void drawError(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
+	C2D_SceneBegin(top);
+	background(400, 240);
+	header(NULL);
+	rrect(20, 70, 360, 100, 16, C_RED_LO);
+	txt("Algo ha fallado", 200, 84, 0.7f, C_WHITE, C2D_AlignCenter);
+	txt(errorMsg, 200, 124, 0.5f, C2D_Color32(255, 225, 225, 255), C2D_AlignCenter);
+	C2D_SceneBegin(bottom);
+	C2D_DrawRectangle(0, 0, 0, 320, 240, C_NAVY2, C_NAVY2, C_NAVY, C_NAVY);
+	txt("Tu partida no se ha tocado.", 160, 90, 0.55f, C_TEXT, C2D_AlignCenter);
+	keyHint(110, 200, "START", "Salir", C_LINE);
+}
+
+int main(void) {
+	gfxInitDefault();
+	romfsInit();
+	C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
+	C2D_Init(C2D_DEFAULT_MAX_OBJECTS * 4);
+	C2D_Prepare();
+	C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+	C3D_RenderTarget *bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
+	textBuf = C2D_TextBufNew(8192);
+	sheet = C2D_SpriteSheetLoad("romfs:/gfx/sprites.t3x");
+	struct stat st;
+	webRoot = stat("romfs:/web/index.html", &st) == 0 ? "romfs:/web" : WEB_ROOT;
+
+	hidSetRepeatParameters(18, 5); // mantener pulsado para bajar rápido por las listas
+	amInit();
+	bool pxi = R_SUCCEEDED(pxiDevInit());
+	foundCount = findSaves(found, 48, pxi);
+
+	AppState state = ST_MENU;
+	bool startNow = false;
+	while (aptMainLoop()) {
+		hidScanInput();
+		u32 k = hidKeysDown();
+		u32 held = hidKeysDownRepeat();
+		frameNo++;
+
+		if (state == ST_MENU) {
+			int total = foundCount + 1;
+			if (held & KEY_DOWN) menuSel = (menuSel + 1) % total;
+			if (held & KEY_UP) menuSel = (menuSel + total - 1) % total;
+			if (k & KEY_START) break;
+			if (k & KEY_A) {
+				if (menuSel == foundCount) {
+					openBrowser();
+					state = ST_BROWSE;
+				} else {
+					current = &found[menuSel];
+					state = ST_LOADING;
+					startNow = true;
+				}
+			}
+		} else if (state == ST_BROWSE) {
+			const int rows = 7;
+			if (browseN && (held & KEY_DOWN)) browseSel = (browseSel + 1) % browseN;
+			if (browseN && (held & KEY_UP)) browseSel = (browseSel + browseN - 1) % browseN;
+			if (browseN && (held & (KEY_R | KEY_RIGHT))) browseSel = browseSel + rows < browseN ? browseSel + rows : browseN - 1;
+			if (browseN && (held & (KEY_L | KEY_LEFT))) browseSel = browseSel - rows > 0 ? browseSel - rows : 0;
+			if (k & KEY_START) state = ST_MENU;
+			if (k & KEY_B) {
+				if (!strcmp(browseDir, "sdmc:/")) state = ST_MENU;
+				else parentDir(browseDir), loadBrowse();
+			}
+			if (browseN && (k & KEY_A)) {
+				char next[512];
+				snprintf(next, sizeof(next), "%s/%s", strcmp(browseDir, "sdmc:/") ? browseDir : "sdmc:", entries[browseSel].name);
+				if (entries[browseSel].dir) {
+					snprintf(browseDir, sizeof(browseDir), "%.383s", next);
+					loadBrowse();
+				} else if (entries[browseSel].size > 0 && entries[browseSel].size <= MAX_SAVE) {
+					memset(&sdFile, 0, sizeof(sdFile));
+					sdFile.kind = SRC_SD;
+					snprintf(sdFile.path, sizeof(sdFile.path), "%.383s", next);
+					strcpy(sdFile.code, "SD");
+					snprintf(sdFile.label, sizeof(sdFile.label), "%.63s", baseName(sdFile.path));
+					mkdirs("sdmc:/3ds/PokeSave");
+					FILE *fp = fopen(LAST_DIR, "w");
+					if (fp) fputs(browseDir, fp), fclose(fp);
+					current = &sdFile;
+					state = ST_LOADING;
+					startNow = true;
+				}
+			}
+		} else if (state == ST_SERVE || state == ST_ERROR) {
+			if (k & KEY_START) break;
+		}
+
+		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+		C2D_TextBufClear(textBuf);
+		C2D_TargetClear(top, C_NAVY);
+		C2D_TargetClear(bottom, C_NAVY);
+		if (state == ST_MENU) drawMenu(top, bottom);
+		else if (state == ST_BROWSE) drawBrowse(top, bottom);
+		else if (state == ST_LOADING) drawLoading(top, bottom);
+		else if (state == ST_SERVE) drawServe(top, bottom);
+		else drawError(top, bottom);
+		C3D_FrameEnd(0);
+
+		// La lectura bloquea: se hace después de pintar una vez la pantalla de "Leyendo...".
+		if (state == ST_LOADING && startNow) {
+			startNow = false;
+			state = startServing() ? ST_SERVE : ST_ERROR;
+		}
+	}
+
+	if (serverRun) {
+		serverRun = false;
+		threadJoin(serverThread, U64_MAX);
+		threadFree(serverThread);
+	}
+	if (serverSock >= 0) close(serverSock);
+	if (socBuffer) socExit();
 	free(saveData);
 	if (pxi) pxiDevExit();
 	amExit();
+	if (sheet) C2D_SpriteSheetFree(sheet);
+	C2D_TextBufDelete(textBuf);
+	C2D_Fini();
+	C3D_Fini();
+	romfsExit();
 	gfxExit();
 	return 0;
 }

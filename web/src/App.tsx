@@ -384,6 +384,7 @@ export default function App() {
           <p className="footer__links">
             <a href={`${import.meta.env.BASE_URL}privacidad/`}>{t('footerPrivacy')}</a>
             <a href={`${import.meta.env.BASE_URL}juegos/`}>{t('footerGames')}</a>
+            <a href={`${import.meta.env.BASE_URL}3ds/`}>{t('footer3ds')}</a>
             <a href="https://github.com/vchaconwebs/pokesave">GitHub</a>
           </p>
         </footer>

@@ -45,3 +45,10 @@ promo/*.mp4
 # Paquete para la SD de la 3DS
 3ds/sd-tarjeta/
 3ds/*.zip
+
+# Herramientas para crear el .cia (descargadas)
+tools/3ds-bin/
+
+# Compilación de PokeSave Link
+3ds/PokeSaveLink/romfs/
+3ds/PokeSaveLink/dist/

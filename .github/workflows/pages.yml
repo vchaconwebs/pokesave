@@ -60,6 +60,12 @@ jobs:
           # Páginas estáticas para buscadores (privacidad, una por juego, sitemap).
           SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
 
+      - name: App de 3DS (la última versión publicada en Releases)
+        # El .cia y el .3dsx se sirven desde la web para instalarlos con FBI por QR.
+        run: gh release download --repo ${{ github.repository }} --pattern 'PokeSaveLink.*' --dir web/dist/3ds --clobber || echo "Aún no hay versión de la app de 3DS publicada"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist
