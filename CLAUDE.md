@@ -32,67 +32,7 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
   Rojo a Z-A) y, en Esmeralda, Rubí/Zafiro y Rojo Fuego/Verde Hoja, dónde está cada objeto
   (suelo, oculto, regalo, tienda) y si ya lo has cogido según los flags de la partida.
   Gen 2 (Oro/Plata/Cristal) añadida después.
-- **Fase 5 (mapas interactivos): hecha para Gen 2 y 3.** Sección "Mapa" en Oro/Plata/Cristal
-  (Johto y Kanto), Rubí/Zafiro/Esmeralda (Hoenn) y Rojo Fuego/Verde Hoja (Kanto e islas Sete):
-  mapa propio en SVG con cada lugar en su sitio; el color dice cuánto te falta (objetos sin
-  coger + Pokémon sin capturar de tu versión) y al tocar un lugar se ve el detalle.
-
-## Estructura
-
-```
-src/PokeSave.Core/    Lógica de partidas (C#, net10.0). Única capa que usa PKHeX.Core.
-  SaveSession.cs        Abrir, resumir y exportar una partida.
-  SaveSummary.cs        DTOs que se mandan a la UI + contexto JSON con generador de código.
-  SaveSession.Editing.cs  Fase 1: leer/editar Pokémon, cajas, entrenador, medallas, listas.
-  EditModels.cs         DTOs de edición (SlotRef, PokemonEdit, EditLimits, EditResult…).
-  SaveSession.Phase2.cs   Fase 2: historial, mochila, Pokédex, importar/exportar .pk*/Showdown.
-  Phase2Models.cs       DTOs de la Fase 2.
-src/PokeSave.Wasm/    Puente browser-wasm. Expone `Engine` a JS con [JSExport].
-tests/PokeSave.Core.Tests/   xUnit. Partidas generadas, nunca reales.
-tests/saves-local/    Tus partidas reales para probar en local (en .gitignore).
-web/                  Frontend: Vite + React + TypeScript.
-  src/engine.ts         Carga perezosa del runtime .NET y API tipada.
-  src/i18n.ts           Textos en español e inglés.
-  src/theme.ts          Colores por juego y por especie.
-  src/components/       Vista de partida, editor de Pokémon (PokemonEditor), cajas del PC,
-                        entrenador y exportación (Panels), controles (Modal, Combobox…).
-  scripts/build-engine.mjs   Publica PokeSave.Wasm y copia _framework a web/public.
-  vite.config.ts        Middleware que sirve /_framework tal cual en desarrollo.
-```
-
-## Cómo compilar y ejecutar
-
-Requisitos: .NET SDK 10, workload `wasm-tools` (`dotnet workload install wasm-tools`), Node 24.
-
-```bash
-cd web
-npm install
-npm run engine     # compila el motor .NET a WASM (necesario la primera vez y tras cambiar C#)
-npm run dev        # http://localhost:5173
-npm run build      # web estática en web/dist
-```
-
-## Publicar en GitHub Pages
-
-`.github/workflows/pages.yml` compila el motor, pasa los tests y publica `web/dist` en cada push
-a `main`. Hay que activar una vez **Settings → Pages → Source: GitHub Actions**. La web queda
-en `https://<usuario>.github.io/<repositorio>/` (la base se pasa con `vite build --base`).
-
-Para relanzar el despliegue a mano: `gh workflow run pages.yml -R vchaconwebs/pokesave --ref main`.
-
-GitHub Pages no sirve los `.br`/`.gz` precomprimidos, así que `engine.ts` pide él mismo los
-`.gz` y los descomprime con `DecompressionStream` (~5,4 MB en lugar de ~20 MB). Si falla, usa
-la URL normal. En local, con Git Bash, usar `MSYS_NO_PATHCONV=1` al pasar `--base /x/`.
-
-## Tests
-
-```bash
-dotnet test                 # desde la raíz
-cd web && npm run typecheck && npm run lint && npm test
-```
-
-## Decisiones
-
+- **Fase 5 (mapas interactivos): quitada** a petición del usuario (se hizo y se retiró).
 - **JSExport + TypeScript (opción B), no Blazor.** El motor .NET solo hace de librería y la UI
   es React normal. Más control del diseño y del tamaño de la primera carga (la interfaz pesa
   ~77 KB gzip y se pinta antes de que llegue el motor).
@@ -240,17 +180,6 @@ cd web && npm run typecheck && npm run lint && npm test
   de dentro de `MACRO … ENDM`), lugar = landmark del mapa (`gen2-locations.json`).
 - Resto de juegos: sin datos de dónde está cada objeto (no hay decompilación con flags). Gen 4
   (pokeplatinum, pokeheartgold) y Gen 1 (pokered, con objetos "missable") son los candidatos.
-
-## Decisiones de la Fase 5
-
-- **Sin imágenes oficiales**: el mapa lo dibuja la web (SVG) con la posición de cada lugar que
-  traen las decompilaciones de pret (`node tools/build-region-maps.mjs` →
-  `web/public/data/maps/*.json`): rectángulos de `region_map_sections.json` (Hoenn), cuadrícula
-  de `region_map_layout_*.h` (Kanto y Sete de FRLG) y puntos de `landmarks.asm` (Johto y Kanto
-  de GSC). Por eso no hace falta Leaflet: es una cuadrícula pequeña.
-- El número de cada casilla es el de PKHeX (sección en Gen 3, landmark en Gen 2): el
-  DataBuilder guarda ese número (`Locations[].Id`) para cruzar los encuentros del asistente.
-- Resto de juegos: no hay coordenadas libres de cada lugar; haría falta dibujarlas a mano.
 
 ## Decisiones de la Fase 6 y extras
 

@@ -31,10 +31,10 @@ const PLATFORM = {
 
 const GAMES = [
   { slug: 'rojo-azul-amarillo', es: 'Pokémon Rojo, Azul y Amarillo', en: 'Pokémon Red, Blue and Yellow', gen: 1, p: 'gb', regional: ['Kanto', 151], extra: ['assistant'] },
-  { slug: 'oro-plata-cristal', es: 'Pokémon Oro, Plata y Cristal', en: 'Pokémon Gold, Silver and Crystal', gen: 2, p: 'gb', regional: ['Johto', 251], extra: ['assistant', 'items', 'map'] },
-  { slug: 'rubi-zafiro', es: 'Pokémon Rubí y Zafiro', en: 'Pokémon Ruby and Sapphire', gen: 3, p: 'gba', regional: ['Hoenn', 202], extra: ['assistant', 'items', 'map'] },
-  { slug: 'esmeralda', es: 'Pokémon Esmeralda', en: 'Pokémon Emerald', gen: 3, p: 'gba', regional: ['Hoenn', 202], extra: ['assistant', 'items', 'map'] },
-  { slug: 'rojo-fuego-verde-hoja', es: 'Pokémon Rojo Fuego y Verde Hoja', en: 'Pokémon FireRed and LeafGreen', gen: 3, p: 'gba', regional: ['Kanto', 151], extra: ['assistant', 'items', 'map'] },
+  { slug: 'oro-plata-cristal', es: 'Pokémon Oro, Plata y Cristal', en: 'Pokémon Gold, Silver and Crystal', gen: 2, p: 'gb', regional: ['Johto', 251], extra: ['assistant', 'items'] },
+  { slug: 'rubi-zafiro', es: 'Pokémon Rubí y Zafiro', en: 'Pokémon Ruby and Sapphire', gen: 3, p: 'gba', regional: ['Hoenn', 202], extra: ['assistant', 'items'] },
+  { slug: 'esmeralda', es: 'Pokémon Esmeralda', en: 'Pokémon Emerald', gen: 3, p: 'gba', regional: ['Hoenn', 202], extra: ['assistant', 'items'] },
+  { slug: 'rojo-fuego-verde-hoja', es: 'Pokémon Rojo Fuego y Verde Hoja', en: 'Pokémon FireRed and LeafGreen', gen: 3, p: 'gba', regional: ['Kanto', 151], extra: ['assistant', 'items'] },
   { slug: 'diamante-perla', es: 'Pokémon Diamante y Perla', en: 'Pokémon Diamond and Pearl', gen: 4, p: 'nds', regional: ['Sinnoh', 151], extra: ['assistant'] },
   { slug: 'platino', es: 'Pokémon Platino', en: 'Pokémon Platinum', gen: 4, p: 'nds', regional: ['Sinnoh', 210], extra: ['assistant'] },
   { slug: 'oro-heartgold-plata-soulsilver', es: 'Pokémon Oro HeartGold y Plata SoulSilver', en: 'Pokémon HeartGold and SoulSilver', gen: 4, p: 'nds', regional: ['Johto', 256], extra: ['assistant'] },
@@ -65,7 +65,6 @@ const FEATURES = {
     assistant: 'Asistente de Pokédex: qué te falta y dónde sale en tu versión (lugar, método y niveles), evoluciones y exclusivos de la otra versión',
     'assistant-rich': 'Asistente de Pokédex completo: qué te falta, dónde sale según tus medallas y la estación, con probabilidades',
     items: 'Buscador de objetos y MT: dónde está cada objeto (suelo, oculto, regalo, tienda) y cuáles has recogido ya',
-    map: 'Mapa interactivo de la región con lo que te falta en cada sitio',
     tm: 'Buscador de objetos y MT: qué tienes y qué movimiento enseña cada MT',
   },
   en: {
@@ -80,7 +79,6 @@ const FEATURES = {
     assistant: 'Pokédex assistant: what you are missing and where it appears in your version (place, method and levels), evolutions and version exclusives',
     'assistant-rich': 'Full Pokédex assistant: what you are missing and where it appears given your badges and the season, with encounter rates',
     items: 'Item & TM finder: where every item is (ground, hidden, gift, shop) and which ones you already picked up',
-    map: 'Interactive region map with what you are missing in each place',
     tm: 'Item & TM finder: what you have and which move each TM teaches',
   },
 }

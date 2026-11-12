@@ -3255,27 +3255,6 @@ p {
 .finder-spot__state { margin-left: auto; font-size: 0.78rem; font-weight: 700; color: var(--good); }
 .finder-spot__state.is-pending { color: var(--mid); }
 
-/* ---------- Fase 5 · Mapa de la región (dibujado por nosotros) ---------- */
-.map-panel { display: grid; gap: 14px; }
-.map-panel__frame {
-  border-radius: var(--radius);
-  background: radial-gradient(circle at 30% 20%, rgb(59 166 224 / 0.25), transparent 60%), #123a6b;
-  box-shadow: inset 0 0 0 3px var(--line-strong), var(--shadow);
-  padding: 10px;
-  overflow: auto;
-}
-.region-map { display: block; width: 100%; height: auto; min-width: 320px; }
-.region-map__cell {
-  fill: #6fbf5f;
-  stroke: rgb(0 0 0 / 0.25);
-  stroke-width: 1;
-  cursor: pointer;
-  transition: fill 0.15s;
-}
-.region-map__cell.has-todo { fill: color-mix(in srgb, #ff5a5a calc(var(--heat) * 100%), #ffcf33); }
-.region-map__cell:hover { stroke: #fff; stroke-width: 2; }
-.region-map__cell.is-selected { stroke: #fff; stroke-width: 3; }
-.map-panel__detail { animation: pop 0.15s ease-out; }
 
 /* ---------- Fase 6 · Compartir el equipo ---------- */
 .section-head__action { margin-left: auto; }
