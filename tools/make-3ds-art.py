@@ -40,11 +40,13 @@ def vgrad(size, top, bottom):
     return img
 
 
-def logo(size):
-    """Logo: azulejo rojo redondeado con una Poké Ball estilizada y una flecha de "guardar"."""
+def logo(size, square=False):
+    """Logo: azulejo rojo redondeado con una Poké Ball estilizada y una flecha de "guardar".
+    square=True: sin esquinas redondeadas ni transparentes (el menú HOME pinta de negro lo
+    transparente del icono)."""
     S = size * 4  # dibujar a 4x y reducir = bordes suaves
     img = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    r = int(S * 0.22)
+    r = 0 if square else int(S * 0.22)
     mask = Image.new('L', (S, S), 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, S - 1, S - 1), r, fill=255)
     tile = vgrad((S, S), RED_HI, RED_LO)
@@ -55,7 +57,8 @@ def logo(size):
     img.paste(tile, (0, 0), mask)
     d = ImageDraw.Draw(img)
     # borde interior
-    d.rounded_rectangle((S * 0.03, S * 0.03, S * 0.97, S * 0.97), int(r * 0.85), outline=(255, 255, 255, 70), width=max(2, S // 60))
+    if not square:
+        d.rounded_rectangle((S * 0.03, S * 0.03, S * 0.97, S * 0.97), int(r * 0.85), outline=(255, 255, 255, 70), width=max(2, S // 60))
 
     # Poké Ball
     cx, cy, R = S * 0.46, S * 0.48, S * 0.31
@@ -120,7 +123,7 @@ def jingle(path):
         w.writeframes(b''.join(struct.pack('<h', s) for s in out))
 
 
-logo(48).save(os.path.join(META, 'icon.png'))
+logo(48, square=True).save(os.path.join(META, 'icon.png'))
 logo(64).save(os.path.join(GFX, 'logo.png'))
 logo(256).save(os.path.join(WEB, 'logo.png'))
 banner().save(os.path.join(META, 'banner.png'))

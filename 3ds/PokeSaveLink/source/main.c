@@ -44,6 +44,7 @@
 #include "spi.h"
 
 #define PORT 8000
+#define APP_VERSION "1.0"
 #define SOC_ALIGN 0x1000
 #define SOC_BUFFERSIZE 0x100000
 #define WEB_ROOT "sdmc:/3ds/PokeSave/web"
@@ -696,8 +697,25 @@ static const char *kindText(const Found *f) {
 	return f->media == MEDIATYPE_GAME_CARD ? "Cartucho de 3DS" : "Juego digital";
 }
 
-/** Botón dibujado con la letra de la consola ("A", "B"…). */
+/** Cruceta dibujada (la fuente del sistema no tiene flechas). */
+static void dpad(float cx, float cy, float s, u32 c) {
+	C2D_DrawRectSolid(cx - s / 6, cy - s / 2, 0, s / 3, s, c);
+	C2D_DrawRectSolid(cx - s / 2, cy - s / 6, 0, s, s / 3, c);
+}
+
+/** Marca de "hecho" dibujada. */
+static void checkMark(float cx, float cy, float s, u32 c) {
+	C2D_DrawLine(cx - s * 0.45f, cy, c, cx - s * 0.1f, cy + s * 0.35f, c, s * 0.22f, 0);
+	C2D_DrawLine(cx - s * 0.12f, cy + s * 0.35f, c, cx + s * 0.5f, cy - s * 0.35f, c, s * 0.22f, 0);
+}
+
+/** Botón dibujado con la letra de la consola ("A", "B"…); "+" dibuja la cruceta. */
 static float keyHint(float x, float y, const char *key, const char *label, u32 color) {
+	if (!strcmp(key, "+")) {
+		rrect(x, y, 22, 22, 11, color);
+		dpad(x + 11, y + 11, 14, C_WHITE);
+		return 28 + txt(label, x + 28, y + 3, 0.45f, C_TEXT, 0) + 16;
+	}
 	float kw = strlen(key) > 1 ? 44 : 22;
 	rrect(x, y, kw, 22, 11, color);
 	txt(key, x + kw / 2, y + 3, 0.45f, C_WHITE, C2D_AlignCenter);
@@ -846,8 +864,9 @@ static void drawMenu(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
 	txt("guardar en sdmc:/3ds/PokeSave/backups/", 160, 167, 0.45f, C_MUTED, C2D_AlignCenter);
 	float x = 26;
 	x += keyHint(x, 204, "A", "Elegir", C_RED);
-	x += keyHint(x, 204, "↕", "Moverse", C_LINE);
+	x += keyHint(x, 204, "+", "Moverse", C_LINE);
 	keyHint(x, 204, "START", "Salir", C_LINE);
+	txt("v" APP_VERSION, 314, 230, 0.36f, C_MUTED, C2D_AlignRight);
 }
 
 static void drawBrowse(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
@@ -941,7 +960,7 @@ static void drawServe(C3D_RenderTarget *top, C3D_RenderTarget *bottom) {
 	const char *msg = st == 0 ? "Esperando al móvil o al PC..." : st == 1 ? "Web abierta en el navegador" : st == 2 ? "Partida enviada: ¡a editar!" : st == 3 ? "Guardando..." : st == 4 ? "¡Partida guardada y comprobada!" : "Error al guardar";
 	u32 col = st == 4 ? C_GOOD : st == 5 ? C_BAD : C_TEXT;
 	if (st == 0 || st == 3) spinner(34, 196, 10);
-	else if (st == 4) C2D_DrawCircleSolid(34, 196, 0, 12 + sinf(frameNo * 0.3f) * (frameNo - savedAt < 30 ? 3 : 0), C_GOOD), txt("✓", 34, 186, 0.6f, C_WHITE, C2D_AlignCenter);
+	else if (st == 4) C2D_DrawCircleSolid(34, 196, 0, 12 + sinf(frameNo * 0.3f) * (frameNo - savedAt < 30 ? 3 : 0), C_GOOD), checkMark(34, 196, 14, C_WHITE);
 	else C2D_DrawCircleSolid(34, 196, 0, 10, st == 5 ? C_BAD : C_BLUE);
 	txt(msg, 56, 172, 0.58f, col, 0);
 	txt(st == 4 ? "Pulsa START y abre el juego" : lastLog, 56, 198, 0.45f, C_MUTED, 0);
