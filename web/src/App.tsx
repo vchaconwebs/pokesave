@@ -8,6 +8,7 @@ import { AssistantPanel } from './components/AssistantPanel'
 import { ItemFinderPanel } from './components/ItemFinderPanel'
 import { SharedTeamView, TeamShareDialog } from './components/TeamShare'
 import { AdSlot } from './components/AdSlot'
+import { App3dsSection } from './components/App3dsSection'
 import { Link3dsBanner, SaveTo3dsDialog } from './components/Link3DS'
 import { useLink3ds } from './link3ds'
 import { decodeTeam, teamFromHash, type SharedTeam } from './share'
@@ -384,7 +385,7 @@ export default function App() {
           <p className="footer__links">
             <a href={`${import.meta.env.BASE_URL}privacidad/`}>{t('footerPrivacy')}</a>
             <a href={`${import.meta.env.BASE_URL}juegos/`}>{t('footerGames')}</a>
-            <a href={`${import.meta.env.BASE_URL}3ds/`}>{t('footer3ds')}</a>
+            <a href={`${import.meta.env.BASE_URL}#app-3ds`}>{t('footer3ds')}</a>
             <a href="https://github.com/vchaconwebs/pokesave">GitHub</a>
           </p>
         </footer>
@@ -559,6 +560,8 @@ function Landing({
 
       {error && <ErrorBox error={error} />}
       {engine.status === 'error' && <ErrorBox error={{ key: 'errEngine' }} />}
+
+      <App3dsSection />
 
       <ul className="features">
         <Feature icon="lock" title={t('featPrivate')} body={t('featPrivateBody')} />

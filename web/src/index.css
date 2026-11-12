@@ -3275,3 +3275,29 @@ p {
 /* Fase 6 · Conectado a la 3DS */
 .link3ds { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
 .link3ds p { margin: 0; }
+
+/* ---------- App de 3DS en la portada ---------- */
+.app3ds {
+  margin: 34px 0 10px;
+  padding: 26px;
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, #1d2a5e, #141b3f);
+  box-shadow: inset 0 0 0 3px var(--line-strong), var(--shadow);
+  color: #f3f5ff;
+  display: grid;
+  gap: 20px;
+}
+.app3ds h2 { margin: 2px 0 4px; font-size: clamp(1.6rem, 4vw, 2.2rem); }
+.app3ds h3 { margin: 0 0 8px; }
+.app3ds .muted { color: #a8b0d6; margin: 0; }
+.app3ds__head { display: flex; gap: 18px; align-items: center; }
+.app3ds__logo { border-radius: 22px; flex: none; box-shadow: 0 10px 24px rgb(0 0 0 / 0.4); }
+.app3ds__body { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 22px; align-items: center; }
+.app3ds__qr { background: #fff; border-radius: 18px; padding: 10px; justify-self: center; width: min(100%, 260px); box-shadow: 0 0 0 6px #ffcb05; }
+.app3ds__qr img { display: block; width: 100%; height: auto; }
+.app3ds__steps { margin: 0 0 14px; padding-left: 1.2em; line-height: 1.7; }
+.app3ds__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.app3ds__actions .btn { text-decoration: none; }
+.app3ds__feats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.app3ds__feats li { background: rgb(255 255 255 / 0.06); border-radius: 14px; padding: 12px 14px; font-size: 0.95rem; }
+.app3ds__note { font-size: 0.85rem; }

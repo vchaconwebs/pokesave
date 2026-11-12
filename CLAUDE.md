@@ -221,7 +221,7 @@ Licencia GPL-3.0 (obligatoria por PKHeX.Core).
   `tools/3ds-bin/` (descargados de Project_CTR y Epicpkmn11/bannertool; no se suben). RSF en
   `meta/app.rsf` (permisos como Checkpoint), UniqueId 0xF5A7E.
 - **Publicar**: subir `dist/PokeSaveLink.cia` y `.3dsx` a una Release de GitHub (`link-vX.Y.Z`); el
-  workflow de Pages los descarga de la última Release y los sirve en `/3ds/`, donde está el QR para
+  workflow de Pages los descarga de la última Release y los sirve en `/3ds/`. El QR y la explicación van en la portada (`App3dsSection.tsx`), con el QR para
   FBI (`web/public/3ds/qr-cia.svg`, generado con `node tools/qr.mjs <url> <svg>`, generador propio).
 - `node web/scripts/mock-3ds.mjs <partida>` simula la consola en `http://localhost:8000` (PIN
   1234) y escribe lo guardado en `<partida>.guardada`.

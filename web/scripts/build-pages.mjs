@@ -133,7 +133,7 @@ ${jsonld.map((j) => `<script type="application/ld+json">${JSON.stringify(j)}</sc
 ${body(root)}
 </main>
 <footer>
-<p>PokeSave es un proyecto de fans sin relación con Nintendo, Game Freak ni The Pokémon Company. Pokémon y sus nombres son marcas de sus dueños. · <a href="${root}privacidad/">Privacidad</a> · <a href="${root}juegos/">Juegos compatibles</a> · <a href="${root}3ds/">App de 3DS</a> · Código abierto (GPL-3.0) con <a href="https://github.com/kwsch/PKHeX">PKHeX.Core</a>.</p>
+<p>PokeSave es un proyecto de fans sin relación con Nintendo, Game Freak ni The Pokémon Company. Pokémon y sus nombres son marcas de sus dueños. · <a href="${root}privacidad/">Privacidad</a> · <a href="${root}juegos/">Juegos compatibles</a> · <a href="${root}#app-3ds">App de 3DS</a> · Código abierto (GPL-3.0) con <a href="https://github.com/kwsch/PKHeX">PKHeX.Core</a>.</p>
 </footer>
 </body>
 </html>
@@ -264,49 +264,6 @@ urls.push(
   }),
 )
 
-
-// ---------- App de 3DS ----------
-urls.push(
-  page({
-    path: '3ds/',
-    title: 'PokeSave Link para 3DS: edita tu partida sin sacar la SD',
-    description: 'Instala PokeSave Link en tu 3DS o 2DS con FBI escaneando un QR y edita tus partidas de Pokémon (3DS, DS y Consola Virtual) desde el móvil por wifi.',
-    body: (root) => `
-<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
-<img src="${root}3ds/logo.png" alt="" width="112" height="112" style="border-radius:24px">
-<div><h1 style="margin:0">PokeSave Link</h1><p class="muted" style="margin:.3em 0 0">La app de 3DS y 2DS para editar tu partida desde el móvil, por wifi.</p></div>
-</div>
-<div class="card" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:22px;align-items:center">
-<img src="${root}3ds/qr-cia.svg" alt="Código QR para instalar PokeSave Link con FBI" style="width:100%;max-width:300px;border-radius:12px;background:#fff;justify-self:center">
-<div>
-<h2 style="margin-top:0">Instálala con un QR</h2>
-<ol>
-<li>En tu consola abre <b>FBI</b>.</li>
-<li>Entra en <b>Remote Install</b> → <b>Scan QR Code</b>.</li>
-<li>Apunta la cámara a este código y acepta.</li>
-<li>Sal al menú HOME: ya tienes el icono de PokeSave Link.</li>
-</ol>
-<p><a class="cta" href="${root}3ds/PokeSaveLink.cia">Descargar .cia</a> <a href="${root}3ds/PokeSaveLink.3dsx">o el .3dsx para el Homebrew Launcher</a></p>
-</div>
-</div>
-<h2>Qué hace</h2>
-<ul>
-<li>Encuentra solas tus partidas: <b>3DS</b> en cartucho o digital (X/Y, Rubí Omega/Zafiro Alfa, Sol/Luna, Ultrasol/Ultraluna), <b>Consola Virtual</b> (Rojo, Azul, Amarillo, Oro, Plata, Cristal) y el <b>cartucho de DS</b> que tengas puesto (Diamante, Perla, Platino, Oro HeartGold, Plata SoulSilver, Negro, Blanco, Negro 2 y Blanco 2).</li>
-<li>Y cualquier <b>.sav de la tarjeta SD</b> (juegos de DS con TWiLight Menu++, emuladores…) con un explorador de carpetas.</li>
-<li>Antes de tocar nada hace una <b>copia de seguridad</b> en <code>sdmc:/3ds/PokeSave/backups/</code>, y otra antes de cada guardado.</li>
-<li>Te enseña una dirección y un QR: ábrela en el móvil, edita tu partida con PokeSave y pulsa <b>Guardar en la 3DS</b> con el PIN de la pantalla.</li>
-<li>La web va dentro de la app: no hace falta copiar nada más a la SD.</li>
-</ul>
-<h2>Lo que necesitas</h2>
-<ul>
-<li>Una 3DS, 2DS o New 3DS con <a href="https://3ds.hacks.guide/es_ES/">Luma3DS</a> y FBI.</li>
-<li>La consola y el móvil en la misma wifi.</li>
-<li>La primera vez, haz también una copia de tu partida con Checkpoint, por si acaso.</li>
-</ul>
-<p class="muted">PokeSave Link es código abierto (GPL-3.0). El acceso a los cartuchos de DS está basado en Checkpoint y TWLSaveTool. No es una app oficial de Nintendo.</p>
-<p><a class="cta" href="${root}">Abrir el editor</a></p>`,
-  }),
-)
 
 // ---------- sitemap y robots ----------
 writeFileSync(
