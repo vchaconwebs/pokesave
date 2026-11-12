@@ -15,8 +15,9 @@ const repo = resolve(here, '..', '..')
 const BUILD = 'C:\\psl-build'
 const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { stdio: 'inherit', ...opts })
 
-// 1. La web compilada con base relativa, dentro de romfs/web (sin .br ni los originales de lo
-//    que ya va en .gz: la web pide los .gz).
+// 1. La web compilada con base relativa, dentro de romfs/web. De los .wasm solo va el .gz (la web
+//    lo pide así: engine.ts → loadCompressed); el resto va sin comprimir, porque el navegador
+//    los pide por su nombre (dotnet.js, dotnet.native.js… se importan como módulos).
 run('npm', ['run', 'build:3ds'], { cwd: join(repo, 'web'), shell: true })
 const webSrc = join(repo, 'web', 'dist-3ds')
 const webDst = join(here, 'romfs', 'web')
@@ -29,15 +30,22 @@ const copyDir = (src, dst) => {
     const s = join(src, name)
     if (statSync(s).isDirectory()) { copyDir(s, join(dst, name)); continue }
     if (name.endsWith('.br') || name === '.nojekyll') continue
-    if (!name.endsWith('.gz') && names.includes(name + '.gz')) continue
+    if (name.endsWith('.gz') && !name.endsWith('.wasm.gz')) continue
+    if (name.endsWith('.wasm') && names.includes(name + '.gz')) continue
     cpSync(s, join(dst, name))
     files++
   }
 }
 copyDir(webSrc, webDst)
 console.log(`romfs/web: ${files} archivos`)
+for (const f of ['index.html', '_framework/dotnet.js', '_framework/blazor.boot.json'].filter((f) => existsSync(join(webSrc, f))))
+  if (!existsSync(join(webDst, f))) throw new Error(`Falta ${f} en romfs/web`)
+for (const f of readdirSync(join(webSrc, '_framework')).filter((f) => /\.(js|json)$/.test(f)))
+  if (!existsSync(join(webDst, '_framework', f))) throw new Error(`Falta _framework/${f} en romfs/web`)
 
 // 2. Compilar en una ruta sin espacios.
+// Sin restos de la compilación anterior (make no vuelve a meter el romfs si solo cambia la web).
+for (const p of ['romfs', 'build', 'PokeSaveLink.3dsx', 'PokeSaveLink.elf', 'PokeSaveLink.smdh']) rmSync(join(BUILD, p), { recursive: true, force: true })
 mkdirSync(BUILD, { recursive: true })
 for (const p of ['Makefile', 'source', 'gfx', 'meta', 'romfs']) cpSync(join(here, p), join(BUILD, p), { recursive: true, force: true })
 const msysBash = 'C:\\devkitPro\\msys2\\usr\\bin\\bash.exe'
@@ -53,7 +61,7 @@ cpSync(join(BUILD, 'PokeSaveLink.3dsx'), join(out, 'PokeSaveLink.3dsx'))
 if (existsSync(bannertool) && existsSync(makerom)) {
   run(bannertool, ['makebanner', '-i', join(here, 'meta', 'banner.png'), '-a', join(here, 'meta', 'banner.wav'), '-o', join(BUILD, 'banner.bnr')])
   run(bannertool, ['makesmdh', '-s', 'PokeSave Link', '-l', 'PokeSave Link: edita tu partida desde el navegador', '-p', 'PokeSave', '-i', join(here, 'meta', 'icon.png'), '-o', join(BUILD, 'icon.icn')])
-  run(makerom, ['-f', 'cia', '-o', join(out, 'PokeSaveLink.cia'), '-elf', 'PokeSaveLink.elf', '-rsf', 'meta/app.rsf', '-icon', 'icon.icn', '-banner', 'banner.bnr', '-exefslogo', '-target', 't', '-major', '1', '-minor', '0', '-micro', '0'], { cwd: BUILD })
+  run(makerom, ['-f', 'cia', '-o', join(out, 'PokeSaveLink.cia'), '-elf', 'PokeSaveLink.elf', '-rsf', 'meta/app.rsf', '-icon', 'icon.icn', '-banner', 'banner.bnr', '-exefslogo', '-target', 't', '-major', '1', '-minor', '0', '-micro', '1'], { cwd: BUILD })
 } else {
   console.log('Sin makerom/bannertool en tools/3ds-bin: solo se genera el .3dsx')
 }

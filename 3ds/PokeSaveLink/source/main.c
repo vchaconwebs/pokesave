@@ -44,7 +44,7 @@
 #include "spi.h"
 
 #define PORT 8000
-#define APP_VERSION "1.0"
+#define APP_VERSION "1.0.1"
 #define SOC_ALIGN 0x1000
 #define SOC_BUFFERSIZE 0x100000
 #define WEB_ROOT "sdmc:/3ds/PokeSave/web"
@@ -345,7 +345,7 @@ static void serveFile(int s, const char *urlPath) {
 	long size = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
 	char head[256];
-	int n = snprintf(head, sizeof(head), "HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %ld\r\nConnection: close\r\n\r\n", mimeOf(path), size);
+	int n = snprintf(head, sizeof(head), "HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %ld\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n", mimeOf(path), size);
 	sendAll(s, head, n);
 	static u8 chunk[0x8000];
 	size_t r;
